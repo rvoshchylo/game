@@ -2,7 +2,7 @@ import { STORAGE_CAPS } from '../data/buildings';
 import { bossById } from '../data/enemies';
 import { eventById, EVENTS } from '../data/events';
 import { LORE } from '../data/lore';
-import { MODULES, moduleById } from '../data/modules';
+import { MODULES } from '../data/modules';
 import { stratumById } from '../data/strata';
 import type { EventEffect, NodeType } from '../data/types';
 import { makeEnemy, startFight, tickFight, tickRobotField } from './combat';
@@ -68,9 +68,9 @@ export function generateMap(ctx: Ctx, firstEver: boolean): MapNode[][] {
 
 export function canLaunch(ctx: Ctx): string | null {
   const s = ctx.s;
-  if (s.exp) return 'The robot is already out.';
-  if (!ctx.rig.weapons.length) return 'Install at least one weapon.';
-  if (s.robot.hp < ctx.rig.maxHp * MIN_LAUNCH_HP) return 'The robot needs repairs first.';
+  if (s.exp) return 'err.alreadyOut';
+  if (!ctx.rig.weapons.length) return 'err.noWeapon';
+  if (s.robot.hp < ctx.rig.maxHp * MIN_LAUNCH_HP) return 'err.needsRepair';
   return null;
 }
 
@@ -78,7 +78,7 @@ export function launch(ctx: Ctx, tier: number): boolean {
   const s = ctx.s;
   const err = canLaunch(ctx);
   if (err) {
-    ctx.bus.emit('error', { text: err });
+    ctx.bus.emit('error', { key: err });
     return false;
   }
   const t = Math.max(1, Math.min(tier, s.tierUnlocked));
@@ -102,7 +102,7 @@ export function launch(ctx: Ctx, tier: number): boolean {
     startedAt: ctx.now,
   };
   s.exp.map = generateMap(ctx, s.stats.expeditions === 0);
-  journal(s, ctx.now, `Expedition into ${stratumById(STRATUM_ID).name}${t > 1 ? ` (tier ${t})` : ''} begins.`);
+  journal(s, ctx.now, 'j.launch', { z: `@zone.${STRATUM_ID}`, tier: t });
   ctx.bus.emit('launched', { tier: t });
   enterChoose(ctx);
   return true;
@@ -111,7 +111,7 @@ export function launch(ctx: Ctx, tier: number): boolean {
 export function recall(ctx: Ctx): void {
   const exp = ctx.s.exp;
   if (!exp || exp.phase === 'return') return;
-  journal(ctx.s, ctx.now, 'Recall signal sent. The robot turns back with its cargo.');
+  journal(ctx.s, ctx.now, 'j.recall');
   beginReturn(ctx);
 }
 
@@ -245,7 +245,7 @@ function grantBlueprint(ctx: Ctx): boolean {
   const id = unknownBlueprint(ctx);
   if (!id) return false;
   ctx.s.exp!.blueprints.push(id);
-  journal(ctx.s, ctx.now, `Blueprint recovered: ${moduleById(id).name}.`);
+  journal(ctx.s, ctx.now, 'j.blueprint', { m: `@mod.${id}.name` });
   ctx.bus.emit('blueprint', { defId: id });
   return true;
 }
@@ -253,7 +253,7 @@ function grantBlueprint(ctx: Ctx): boolean {
 function grantLore(ctx: Ctx): void {
   const s = ctx.s;
   if (s.lore >= LORE.length) return;
-  journal(s, ctx.now, `Echo log: “${LORE[s.lore]}”`);
+  journal(s, ctx.now, 'j.lore', { text: `@lore.${s.lore}` });
   ctx.bus.emit('lore', { index: s.lore });
   s.lore++;
 }
@@ -282,8 +282,8 @@ function winFight(ctx: Ctx): void {
     grantBlueprint(ctx);
     if (exp.tier === s.tierUnlocked) {
       s.tierUnlocked++;
-      journal(s, ctx.now, `${b.name} falls silent. Tier ${s.tierUnlocked} of the shaft is open.`);
-    } else journal(s, ctx.now, `${b.name} falls silent again.`);
+      journal(s, ctx.now, 'j.bossFirst', { b: `@boss.${b.id}.name`, tier: s.tierUnlocked });
+    } else journal(s, ctx.now, 'j.bossAgain', { b: `@boss.${b.id}.name` });
   }
   afterNode(ctx);
 }
@@ -299,7 +299,7 @@ function loseFight(ctx: Ctx): void {
   const lost = exp.crates.length - keep;
   exp.crates = exp.crates.slice(0, keep);
   exp.cratesLost += lost;
-  journal(s, ctx.now, `The robot breaks down on layer ${exp.layer + 1}. ${lost ? `${lost} crate${lost > 1 ? 's' : ''} lost. ` : ''}It drags itself home.`);
+  journal(s, ctx.now, lost ? 'j.breakdownLost' : 'j.breakdown', { layer: exp.layer + 1, n: lost });
   ctx.bus.emit('fightEnd', { won: false });
   ctx.bus.emit('breakdown', {});
   beginReturn(ctx);
@@ -328,9 +328,9 @@ export function eventChoice(ctx: Ctx, index: number): boolean {
   if (!opt) return false;
   const ok = nextRandom(ctx.s) < opt.chance;
   applyEffects(ctx, ok ? opt.success : opt.fail);
-  const text = ok ? opt.successText : opt.failText;
-  journal(ctx.s, ctx.now, `${opt.label}: ${text}`);
-  ctx.bus.emit('eventResult', { text });
+  const key = `event.${ev.id}.o${index}.${ok ? 'ok' : 'fail'}`;
+  journal(ctx.s, ctx.now, 'j.event', { opt: `@event.${ev.id}.o${index}`, text: `@${key}` });
+  ctx.bus.emit('eventResult', { key });
   afterNode(ctx);
   return true;
 }
@@ -359,15 +359,15 @@ function afterNode(ctx: Ctx): void {
   const last = exp.layer >= exp.map.length - 1;
   const hpPct = (s.robot.hp / ctx.rig.maxHp) * 100;
   if (last) {
-    journal(s, ctx.now, exp.map.length < stratumById(exp.stratumId).layers ? 'The tunnel ends. The robot heads home.' : 'The bottom of the strata. The robot heads home.');
+    journal(s, ctx.now, exp.map.length < stratumById(exp.stratumId).layers ? 'j.tunnelEnds' : 'j.bottom');
     return beginReturn(ctx);
   }
   if (hpPct < ap.returnHpPct) {
-    journal(s, ctx.now, `Hull at ${Math.round(hpPct)}% — below your ${ap.returnHpPct}% rule. Heading home.`);
+    journal(s, ctx.now, 'j.lowHull', { hp: Math.round(hpPct), rule: ap.returnHpPct });
     return beginReturn(ctx);
   }
   if (ap.returnWhenFull && exp.crates.length >= ctx.rig.cargo) {
-    journal(s, ctx.now, 'Cargo full. Heading home.');
+    journal(s, ctx.now, 'j.cargoFull');
     return beginReturn(ctx);
   }
   exp.layer++;
@@ -413,7 +413,7 @@ function deposit(ctx: Ctx): void {
     bossDefeated,
     endedAt: ctx.now,
   };
-  journal(s, ctx.now, `Back at camp: +${scrapIn} scrap, +${copperIn} copper${exp.cores ? `, +${exp.cores} core` : ''}${scrap - scrapIn > 0 ? ' (storage full — some scrap left outside)' : ''}.`);
+  journal(s, ctx.now, scrap - scrapIn > 0 ? 'j.backFull' : 'j.back', { s: scrapIn, c: copperIn, k: exp.cores });
   s.exp = null;
   ctx.bus.emit('returned', { report: s.lastReport });
 }

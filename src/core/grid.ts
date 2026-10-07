@@ -66,12 +66,17 @@ export interface WeaponStat {
   aoe: boolean;
 }
 
+export interface Note {
+  k: string;
+  p?: Record<string, number>;
+}
+
 export interface PlacedModule {
   inst: ModuleInst;
   def: ModuleDef;
   cells: [number, number][];
-  /** Human-readable modifiers acting on this module (synergies, heat, corners). */
-  notes: string[];
+  /** Modifiers acting on this module (translation key + params). */
+  notes: Note[];
   /** Neighbour uids. */
   adj: string[];
 }
@@ -150,7 +155,7 @@ export function computeRig(s: GameState): RigStats {
     const hot = touches(p, 'reactor') > 0 && p.def.id !== 'reactor' && p.def.id !== 'cooler' && touches(p, 'cooler') === 0;
     if (hot) {
       m *= 0.75;
-      p.notes.push('Overheated by a Reactor: −25%');
+      p.notes.push({ k: 'note.hot' });
     }
     mul.set(p.inst.uid, m);
   }
@@ -184,8 +189,8 @@ export function computeRig(s: GameState): RigStats {
     if (d.kind === 'weapon') {
       const batteries = Math.min(2, touches(p, 'battery'));
       const coolers = Math.min(2, touches(p, 'cooler'));
-      if (batteries) p.notes.push(`Charged by ${batteries} Batter${batteries > 1 ? 'ies' : 'y'}: +${20 * batteries}% damage`);
-      if (coolers) p.notes.push(`Cooled by ${coolers}: ${Math.round((1 - Math.pow(0.8, coolers)) * 100)}% faster`);
+      if (batteries) p.notes.push({ k: 'note.charged', p: { n: batteries, pct: 20 * batteries } });
+      if (coolers) p.notes.push({ k: 'note.cooled', p: { n: coolers, pct: Math.round((1 - Math.pow(0.8, coolers)) * 100) } });
       const ws: WeaponStat = {
         uid: p.inst.uid,
         defId: d.id,
@@ -200,7 +205,7 @@ export function computeRig(s: GameState): RigStats {
     if (d.armor || d.hp) {
       const corner = p.cells.some(([x, y]) => corners.has(`${x},${y}`));
       const cm = corner ? 1.5 : 1;
-      if (corner) p.notes.push('In a corner: ×1.5');
+      if (corner) p.notes.push({ k: 'note.corner' });
       stats.armor += (d.armor ?? 0) * m * cm;
       stats.maxHp += (d.hp ?? 0) * m * cm;
     }
@@ -211,14 +216,14 @@ export function computeRig(s: GameState): RigStats {
     if (d.repair) stats.repair += d.repair * m * efficiency;
     if (d.cargo) {
       const magnets = touches(p, 'magnet');
-      if (magnets) p.notes.push(`Magnet${magnets > 1 ? 's' : ''} attached: +${magnets} crate${magnets > 1 ? 's' : ''}`);
+      if (magnets) p.notes.push({ k: 'note.magnet', p: { n: magnets } });
       stats.cargo += d.cargo + (p.inst.level - 1) + magnets;
     }
     if (d.scrapBonus) stats.scrapMul += d.scrapBonus * m;
     if (d.keepOnBreak) stats.keep = Math.max(stats.keep, Math.min(0.95, d.keepOnBreak + 0.05 * (p.inst.level - 1)));
     if (d.extraChoice) stats.extraChoices += d.extraChoice;
   }
-  if (efficiency < 1) for (const p of placed) if (p.def.power < 0) p.notes.push(`Underpowered: running at ${Math.round(efficiency * 100)}%`);
+  if (efficiency < 1) for (const p of placed) if (p.def.power < 0) p.notes.push({ k: 'note.underpowered', p: { pct: Math.round(efficiency * 100) } });
 
   // Named combos (discoveries)
   if (placed.some((p) => p.def.id === 'cooler' && neighbours(p).filter((n) => n.def.kind === 'weapon').length >= 2)) stats.combos.push('thermal_loop');

@@ -1,15 +1,17 @@
 import { canAfford, mergePartner, salvageValue } from '../../core/camp';
 import { canPlace, shapeCells } from '../../core/grid';
-import { COMBOS } from '../../data/lore';
 import { MODULES, mergeCost, moduleById } from '../../data/modules';
 import type { Cost } from '../../data/types';
+import { t } from '../../i18n';
 import { formatNumber } from '../../utils/format';
 import type { UiContext } from '../context';
 import { h, setDisabled, type Panel } from '../dom';
 import { sprite } from '../sprites';
 
 export const costText = (c: Cost): string =>
-  [c.scrap ? `${c.scrap} scrap` : '', c.copper ? `${c.copper} copper` : '', c.cores ? `${c.cores} core${c.cores > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') || 'free';
+  [c.scrap ? t('cost.scrap', { n: c.scrap }) : '', c.copper ? t('cost.copper', { n: c.copper }) : '', c.cores ? t('cost.cores', { n: c.cores }) : ''].filter(Boolean).join(' · ') || t('cost.free');
+
+export const modName = (id: string): string => t(`mod.${id}.name`);
 
 function shapePreview(shape: Parameters<typeof shapeCells>[0], rot: number, color: string): HTMLElement {
   const cells = shapeCells(shape, rot);
@@ -56,7 +58,7 @@ export class RigPanel implements Panel {
     const eng = this.eng;
     const s = eng.state;
     if (s.exp) {
-      this.ui.toasts.show('The robot is out in the shaft. You can rebuild it when it returns.', 'info');
+      this.ui.toasts.show(t('err.away'), 'info');
       return;
     }
     const occupant = eng.rig.cells[y]?.[x] ?? null;
@@ -78,7 +80,7 @@ export class RigPanel implements Panel {
         this.select(occupant);
         return;
       }
-      this.ui.toasts.show('It does not fit there. Rotate it or pick another spot.', 'danger', 2200);
+      this.ui.toasts.show(t('err.noFit'), 'danger', 2200);
       this.ui.sfx.error();
       return;
     }
@@ -96,7 +98,7 @@ export class RigPanel implements Panel {
       if (canPlace(this.eng.state, m.uid, at)) this.eng.dispatch({ type: 'place', uid: m.uid, ...at });
       else {
         this.eng.dispatch({ type: 'unplace', uid: m.uid });
-        this.ui.toasts.show('No room to turn it in place — it is back in your hands. Tap a cell to set it down.', 'info', 3000);
+        this.ui.toasts.show(t('rig.noRoomRotate'), 'info', 3000);
       }
     }
     this.selected = { uid: sel.uid, rot };
@@ -108,7 +110,7 @@ export class RigPanel implements Panel {
     const rig = eng.rig;
     const away = !!s.exp;
     const root = h('div', { class: 'panel-inner' });
-    if (away) root.append(h('div', { class: 'card faint' }, 'The robot is out in the shaft. You can plan here, but changes wait until it is back at camp.'));
+    if (away) root.append(h('div', { class: 'card faint' }, t('rig.away')));
 
     // Grid
     const grid = h('div', { class: 'rig-grid', style: `grid-template-columns:repeat(${rig.w},var(--cell));grid-template-rows:repeat(${rig.h},var(--cell))` });
@@ -122,7 +124,7 @@ export class RigPanel implements Panel {
         if (p) cls.push('filled');
         if (sel && uid === sel.uid) cls.push('selected');
         if (p && p.notes.length) cls.push('boosted');
-        const el = h('button', { class: cls.join(' '), style: p ? `--mod:${p.def.color}` : '', 'aria-label': p ? p.def.name : `Empty cell ${x + 1},${y + 1}`, onclick: () => this.tapCell(x, y) });
+        const el = h('button', { class: cls.join(' '), style: p ? `--mod:${p.def.color}` : '', 'aria-label': p ? modName(p.def.id) : `${t('rig.empty')} ${x + 1},${y + 1}`, onclick: () => this.tapCell(x, y) });
         if (p) {
           // edges between cells of the same module are hidden for a "piece" look
           const same = (dx: number, dy: number) => rig.cells[y + dy]?.[x + dx] === uid;
@@ -145,18 +147,18 @@ export class RigPanel implements Panel {
     const stats = h(
       'div',
       { class: 'stats' },
-      stat('Power', `${formatNumber(rig.powerUse)}/${formatNumber(rig.powerProduce)}${powerBad ? ` · ${Math.round(rig.efficiency * 100)}%` : ''}`, powerBad),
-      stat('Damage/s', formatNumber(rig.dps)),
-      stat('Hull', formatNumber(rig.maxHp)),
-      stat('Armor', `${formatNumber(rig.armor)}`),
-      stat('Shield', formatNumber(rig.shieldMax)),
-      stat('Repair/s', formatNumber(rig.repair)),
-      stat('Cargo', `${rig.cargo} crates`),
-      rig.scrapMul > 1 ? stat('Scrap', `×${rig.scrapMul.toFixed(2)}`) : null,
-      rig.keep > 0.5 ? stat('Keep on breakdown', `${Math.round(rig.keep * 100)}%`) : null,
-      rig.extraChoices ? stat('Extra paths', `+${rig.extraChoices}`) : null,
+      stat(t('stat.power'), `${formatNumber(rig.powerUse)}/${formatNumber(rig.powerProduce)}${powerBad ? ` · ${Math.round(rig.efficiency * 100)}%` : ''}`, powerBad),
+      stat(t('stat.dps'), formatNumber(rig.dps)),
+      stat(t('stat.hull'), formatNumber(rig.maxHp)),
+      stat(t('stat.armor'), `${formatNumber(rig.armor)}`),
+      stat(t('stat.shield'), formatNumber(rig.shieldMax)),
+      stat(t('stat.repair'), formatNumber(rig.repair)),
+      stat(t('stat.cargo'), t('stat.crates', { n: rig.cargo })),
+      rig.scrapMul > 1 ? stat(t('stat.scrap'), `×${rig.scrapMul.toFixed(2)}`) : null,
+      rig.keep > 0.5 ? stat(t('stat.keep'), `${Math.round(rig.keep * 100)}%`) : null,
+      rig.extraChoices ? stat(t('stat.paths'), `+${rig.extraChoices}`) : null,
     );
-    root.append(h('div', { class: 'card rig-card' }, h('div', { class: 'card-title' }, `Robot grid ${rig.w}×${rig.h}`), h('div', { class: 'rig-wrap' }, grid, stats)));
+    root.append(h('div', { class: 'card rig-card' }, h('div', { class: 'card-title' }, t('rig.grid', { w: rig.w, h: rig.h })), h('div', { class: 'rig-wrap' }, grid, stats)));
 
     // Selection card
     if (sel) {
@@ -165,27 +167,27 @@ export class RigPanel implements Panel {
         const def = moduleById(m.defId);
         const placed = rig.placed.find((p) => p.inst.uid === m.uid);
         const partner = mergePartner(s, m.uid);
-        const actions: HTMLElement[] = [h('button', { class: 'btn ghost', onclick: () => this.rotate(), disabled: away }, '⟳ Rotate')];
-        if (m.pos) actions.push(h('button', { class: 'btn ghost', disabled: away, onclick: () => (this.eng.dispatch({ type: 'unplace', uid: m.uid }), this.select(null)) }, 'Take out'));
+        const actions: HTMLElement[] = [h('button', { class: 'btn ghost', onclick: () => this.rotate(), disabled: away }, t('rig.rotate'))];
+        if (m.pos) actions.push(h('button', { class: 'btn ghost', disabled: away, onclick: () => (this.eng.dispatch({ type: 'unplace', uid: m.uid }), this.select(null)) }, t('rig.takeOut')));
         if (s.buildings.forge > 0 && partner)
-          actions.push(h('button', { class: 'btn', disabled: away || s.scrap < mergeCost(m.level), onclick: () => this.eng.dispatch({ type: 'merge', uid: m.uid }) }, `Merge → Lv ${m.level + 1} (${mergeCost(m.level)} scrap)`));
-        if (!m.pos) actions.push(h('button', { class: 'btn danger', disabled: away, onclick: () => (this.eng.dispatch({ type: 'salvage', uid: m.uid }), this.select(null)) }, `Salvage +${salvageValue(m.defId, m.level)}`));
-        actions.push(h('button', { class: 'btn ghost', onclick: () => this.select(null) }, 'Done'));
+          actions.push(h('button', { class: 'btn', disabled: away || s.scrap < mergeCost(m.level), onclick: () => this.eng.dispatch({ type: 'merge', uid: m.uid }) }, t('rig.merge', { lvl: m.level + 1, cost: mergeCost(m.level) })));
+        if (!m.pos) actions.push(h('button', { class: 'btn danger', disabled: away, onclick: () => (this.eng.dispatch({ type: 'salvage', uid: m.uid }), this.select(null)) }, t('rig.salvage', { v: salvageValue(m.defId, m.level) })));
+        actions.push(h('button', { class: 'btn ghost', onclick: () => this.select(null) }, t('rig.done')));
         root.append(
           h(
             'div',
             { class: 'card selected-card' },
-            h('div', { class: 'row' }, sprite('onebit', def.icon, 2), h('div', { class: 'grow' }, h('div', { class: 'card-title' }, `${def.name} · Lv ${m.level}`), h('div', { class: 'desc' }, def.description)), shapePreview(def.shape, sel.rot, def.color)),
-            def.synergy ? h('div', { class: 'sub' }, `Synergy: ${def.synergy}`) : null,
-            def.power ? h('div', { class: 'desc' }, def.power > 0 ? `Produces ${def.power} power.` : `Uses ${-def.power} power.`) : null,
-            placed?.notes.length ? h('ul', { class: 'notes' }, ...placed.notes.map((n) => h('li', {}, n))) : null,
-            !m.pos ? h('div', { class: 'hint' }, 'Tap an empty cell to place it (the cell becomes its top-left corner).') : null,
+            h('div', { class: 'row' }, sprite('onebit', def.icon, 2), h('div', { class: 'grow' }, h('div', { class: 'card-title' }, `${modName(def.id)} · ${t('lvl', { n: m.level })}`), h('div', { class: 'desc' }, t(`mod.${def.id}.desc`))), shapePreview(def.shape, sel.rot, def.color)),
+            t(`mod.${def.id}.syn`) ? h('div', { class: 'sub' }, t('rig.synergy', { text: t(`mod.${def.id}.syn`) })) : null,
+            def.power ? h('div', { class: 'desc' }, def.power > 0 ? t('rig.produces', { n: def.power }) : t('rig.uses', { n: -def.power })) : null,
+            placed?.notes.length ? h('ul', { class: 'notes' }, ...placed.notes.map((n) => h('li', {}, t(n.k, n.p)))) : null,
+            !m.pos ? h('div', { class: 'hint' }, t('rig.placeHint')) : null,
             h('div', { class: 'row actions' }, ...actions),
           ),
         );
       }
     } else {
-      root.append(h('div', { class: 'hint pad' }, 'Tap a module to inspect, rotate or move it. Neighbours matter: look for glowing borders.'));
+      root.append(h('div', { class: 'hint pad' }, t('rig.tapHint')));
     }
 
     // Spare modules
@@ -194,7 +196,7 @@ export class RigPanel implements Panel {
       h(
         'div',
         { class: 'card' },
-        h('div', { class: 'card-title' }, `Spare modules (${spare.length})`),
+        h('div', { class: 'card-title' }, t('rig.spare', { n: spare.length })),
         spare.length
           ? h(
               'div',
@@ -205,12 +207,12 @@ export class RigPanel implements Panel {
                   'button',
                   { class: `spare ${sel?.uid === m.uid ? 'on' : ''}`, onclick: () => this.select(sel?.uid === m.uid ? null : m.uid, 0) },
                   sprite('onebit', def.icon, 2),
-                  h('span', {}, `${def.name}${m.level > 1 ? ` ${m.level}` : ''}`),
+                  h('span', {}, `${modName(def.id)}${m.level > 1 ? ` ${m.level}` : ''}`),
                   shapePreview(def.shape, 0, def.color),
                 );
               }),
             )
-          : h('div', { class: 'desc' }, 'Craft modules below. Twins can be merged at the Forge.'),
+          : h('div', { class: 'desc' }, t('rig.noSpare')),
       ),
     );
 
@@ -222,22 +224,19 @@ export class RigPanel implements Panel {
       h(
         'div',
         { class: 'card' },
-        h('div', { class: 'card-title' }, 'Workshop — craft'),
+        h('div', { class: 'card-title' }, t('rig.craft')),
         ...known.map((d) => {
           const btn = h('button', { class: 'btn buy', onclick: () => this.eng.dispatch({ type: 'craft', defId: d.id }) }, costText(d.cost));
           this.craftBtns.push({ id: d.id, el: btn });
-          return h('div', { class: 'craft-row' }, sprite('onebit', d.icon, 2), h('div', { class: 'grow' }, h('b', {}, d.name), ' ', shapePreview(d.shape, 0, d.color), h('div', { class: 'desc' }, d.description)), btn);
+          return h('div', { class: 'craft-row' }, sprite('onebit', d.icon, 2), h('div', { class: 'grow' }, h('b', {}, modName(d.id)), ' ', shapePreview(d.shape, 0, d.color), h('div', { class: 'desc' }, t(`mod.${d.id}.desc`))), btn);
         }),
-        unknown ? h('div', { class: 'hint' }, `▒▒ ${unknown} more designs are out there. Elites, caches and strange events carry blueprints.`) : null,
+        unknown ? h('div', { class: 'hint' }, t('rig.unknown', { n: unknown })) : null,
       ),
     );
 
     if (s.combos.length)
       root.append(
-        h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Discovered combos'), ...s.combos.map((id) => {
-          const c = COMBOS.find((x) => x.id === id)!;
-          return h('div', { class: 'desc' }, h('b', {}, c.name), ` — ${c.text}`);
-        })),
+        h('div', { class: 'card' }, h('div', { class: 'card-title' }, t('rig.combos')), ...s.combos.map((id) => h('div', { class: 'desc' }, h('b', {}, t(`combo.${id}.name`)), ` — ${t(`combo.${id}.text`)}`))),
       );
     return root;
   }

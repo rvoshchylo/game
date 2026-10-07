@@ -4,7 +4,9 @@
 
 A calm, no-clicking browser game: arrange modules on the robot's grid (shapes, power, neighbour synergies), send it on auto-battling expeditions down a branching shaft, grow a camp that unlocks new systems. Plays fine in 3-minute check-ins; keeps going while you're away.
 
-**Stack:** Phaser 4.2 · TypeScript (strict) · Vite · Vitest. No React, 1 runtime dependency (+ OFL fonts, CC0 Kenney sprites).
+**Languages:** Українська · English · Русский (auto-detected, switch in ⚙ Settings). In-game **GUIDE** tab explains every system.
+
+**Stack:** Phaser 4.2 · TypeScript (strict) · Vite · Vitest. No React, 1 runtime dependency (+ Tiny5 OFL font, CC0 Kenney sprites).
 
 ## Run
 

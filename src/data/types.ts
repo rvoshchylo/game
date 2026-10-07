@@ -11,7 +11,6 @@ export interface Cost {
 
 export interface ModuleDef {
   id: string;
-  name: string;
   kind: ModuleKind;
   shape: ShapeId;
   /** +produces / −consumes power. */
@@ -19,9 +18,6 @@ export interface ModuleDef {
   /** Frame in the Kenney 1-Bit sheet. */
   icon: number;
   color: string;
-  description: string;
-  /** Short line about what neighbours do to / for it. */
-  synergy?: string;
   cost: Cost;
   /** Known from the start (no blueprint needed). */
   starter?: boolean;
@@ -43,7 +39,6 @@ export interface ModuleDef {
 
 export interface EnemyDef {
   id: string;
-  name: string;
   /** Frame in the Kenney Tiny Dungeon sheet; -1 = procedural (boss). */
   frame: number;
   hp: number;
@@ -53,7 +48,6 @@ export interface EnemyDef {
 }
 
 export interface BossDef extends EnemyDef {
-  title: string;
   tags: string[];
   /** True damage to the robot every `tollInterval` seconds (shields absorb it). */
   tollDamage: number;
@@ -61,14 +55,12 @@ export interface BossDef extends EnemyDef {
   /** Below this HP ratio the boss gains `phase2Armor`. */
   phase2At: number;
   phase2Armor: number;
-  profile: string[];
 }
 
 export type NodeType = 'fight' | 'elite' | 'cache' | 'rest' | 'event' | 'boss';
 
 export interface StratumDef {
   id: string;
-  name: string;
   layers: number;
   enemies: string[];
   elites: string[];
@@ -79,15 +71,11 @@ export interface StratumDef {
 
 export interface BuildingLevel {
   cost: Cost;
-  /** What this level changes, shown to the player. */
-  text: string;
 }
 
 export interface BuildingDef {
   id: string;
-  name: string;
   icon: number;
-  description: string;
   /** Unlock flag that reveals the construction site; null = available from start. */
   flag: string | null;
   levels: BuildingLevel[];
@@ -102,17 +90,13 @@ export type EventEffect =
   | { kind: 'nothing' };
 
 export interface EventOption {
-  label: string;
   chance: number;
   success: EventEffect[];
   fail: EventEffect[];
-  successText: string;
-  failText: string;
 }
 
 export interface EventDef {
   id: string;
-  text: string;
   options: EventOption[];
   /** Option index autopilot takes (the safe one). */
   safe: number;
@@ -133,5 +117,4 @@ export interface UnlockRule {
   flag: string;
   metric: MetricKey;
   gte: number;
-  message: string;
 }

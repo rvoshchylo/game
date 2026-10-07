@@ -1,5 +1,4 @@
 import { buildingById, DOCK_REPAIR } from '../data/buildings';
-import { COMBOS } from '../data/lore';
 import { MAX_MODULE_LEVEL, mergeCost, moduleById } from '../data/modules';
 import type { Cost } from '../data/types';
 import { UNLOCKS } from '../data/unlocks';
@@ -18,7 +17,7 @@ function pay(s: GameState, c: Cost): void {
 
 const atCamp = (ctx: Ctx): boolean => {
   if (ctx.s.exp) {
-    ctx.bus.emit('error', { text: 'The robot is out in the shaft. Rebuild it when it is back.' });
+    ctx.bus.emit('error', { key: 'err.away' });
     return false;
   }
   return true;
@@ -45,8 +44,7 @@ export function build(ctx: Ctx, id: string): boolean {
   if (id === 'workshop' && !atCamp(ctx)) return false;
   pay(s, cost);
   s.buildings[id] = (s.buildings[id] ?? 0) + 1;
-  const b = buildingById(id);
-  journal(s, ctx.now, `${b.name} ${s.buildings[id] === 1 ? 'built' : `upgraded to level ${s.buildings[id]}`}: ${b.levels[s.buildings[id] - 1].text}`);
+  journal(s, ctx.now, s.buildings[id] === 1 ? 'j.built' : 'j.upgraded', { b: `@bld.${id}.name`, lvl: s.buildings[id], what: `@bld.${id}.l${s.buildings[id]}` });
   ctx.bus.emit('built', { id, level: s.buildings[id] });
   ctx.invalidate();
   return true;
@@ -85,7 +83,7 @@ export function merge(ctx: Ctx, uid: string): boolean {
   s.modules = s.modules.filter((x) => x.uid !== partner);
   m.level++;
   s.stats.merges++;
-  journal(s, ctx.now, `Forged ${moduleById(m.defId).name} to level ${m.level}.`);
+  journal(s, ctx.now, 'j.merged', { m: `@mod.${m.defId}.name`, lvl: m.level });
   ctx.bus.emit('merged', { module: m });
   ctx.invalidate();
   return true;
@@ -150,8 +148,8 @@ export function checkUnlocks(ctx: Ctx): void {
   for (const u of UNLOCKS) {
     if (s.flags.includes(u.flag) || s.stats[u.metric] < u.gte) continue;
     s.flags.push(u.flag);
-    journal(s, ctx.now, u.message);
-    ctx.bus.emit('unlock', { flag: u.flag, message: u.message });
+    journal(s, ctx.now, `unlock.${u.flag}`);
+    ctx.bus.emit('unlock', { flag: u.flag });
   }
 }
 
@@ -159,8 +157,7 @@ export function checkCombos(ctx: Ctx): void {
   for (const id of ctx.rig.combos) {
     if (ctx.s.combos.includes(id)) continue;
     ctx.s.combos.push(id);
-    const c = COMBOS.find((x) => x.id === id)!;
-    journal(ctx.s, ctx.now, `Discovery — ${c.name}: ${c.text}`);
-    ctx.bus.emit('combo', { id, name: c.name });
+    journal(ctx.s, ctx.now, 'j.combo', { c: `@combo.${id}.name`, text: `@combo.${id}.text` });
+    ctx.bus.emit('combo', { id });
   }
 }

@@ -3,7 +3,6 @@ import type { StratumDef } from './types';
 export const STRATA: StratumDef[] = [
   {
     id: 'rust',
-    name: 'The Rust Strata',
     layers: 8,
     enemies: ['bat', 'rat', 'spider', 'slime', 'ghost'],
     elites: ['cyclops', 'crab'],

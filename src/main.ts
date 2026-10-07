@@ -1,6 +1,4 @@
-import '@fontsource/pixelify-sans/400.css';
-import '@fontsource/pixelify-sans/600.css';
-import '@fontsource/silkscreen/400.css';
+import '@fontsource/tiny5/400.css';
 import './styles.css';
 import Phaser from 'phaser';
 import { Sfx } from './audio/sfx';
@@ -15,6 +13,7 @@ import { systemClock } from './services/clock';
 import { MockMonetizationService } from './services/monetization';
 import { LocalGameRepository } from './services/repository';
 import { LocalSaveService } from './services/save';
+import { detectLang, isLang, setLang, t } from './i18n';
 import { App } from './ui/app';
 import { Modal } from './ui/modal';
 import { Toasts } from './ui/toast';
@@ -40,17 +39,19 @@ async function boot(): Promise<void> {
       const res = fromSave(raw, now);
       state = res.state;
       loaded = !res.legacy;
-      if (res.legacy) bootMessage = 'Rustheart has been rebuilt from the ground up: you are now the robot’s engineer. Your clicker-era progress could not carry over — welcome to a fresh start.';
-      else if (!res.checksumOk) bootMessage = 'Your save looked damaged; recovered what could be read.';
+      if (res.legacy) bootMessage = 'boot.legacy';
+      else if (!res.checksumOk) bootMessage = 'boot.damaged';
     } catch (err) {
       state = createInitialState(now);
       if (err instanceof FutureSaveError) {
         savingDisabled = true;
-        bootMessage = 'This save comes from a newer version of the game. Playing a temporary session; your save is untouched.';
-      } else bootMessage = 'Your save could not be read. Starting fresh (a backup copy is kept).';
+        bootMessage = 'boot.future';
+      } else bootMessage = 'boot.unreadable';
     }
   } else state = createInitialState(now);
 
+  setLang(isLang(state.settings.lang) ? state.settings.lang : detectLang());
+  document.documentElement.lang = isLang(state.settings.lang) ? state.settings.lang : detectLang();
   const engine = new GameEngine(state, now);
   const offline: OfflineReport | null = loaded ? engine.catchUp(now) : null;
 
@@ -80,7 +81,7 @@ async function boot(): Promise<void> {
           location.reload();
           return null;
         } catch (e) {
-          return e instanceof FutureSaveError ? 'That save is from a newer version.' : 'That does not look like a Rustheart save.';
+          return e instanceof FutureSaveError ? 'err.importFuture' : 'err.importBad';
         }
       },
       hardReset: () => {
@@ -96,7 +97,7 @@ async function boot(): Promise<void> {
   engine.bus.on('unlock', (e) => analytics.track('unlock', { flag: e.flag }));
 
   try {
-    await Promise.all([document.fonts.load('16px "Pixelify Sans"'), document.fonts.load('12px "Silkscreen"')]);
+    await Promise.all([document.fonts.load('16px "Tiny5"'), document.fonts.load('16px "Tiny5"', 'Відкликати')]);
   } catch {
     // fonts are cosmetic
   }
@@ -115,8 +116,13 @@ async function boot(): Promise<void> {
   });
 
   window.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
-  if (bootMessage) toasts.show(bootMessage, 'danger', 9000);
-  if (offline && offline.elapsedSec >= AWAY_REPORT_MIN_SEC) app.showOffline(offline);
+  if (bootMessage) toasts.show(t(bootMessage), 'danger', 9000);
+  if (!engine.state.settings.introSeen)
+    app.showIntro(() => {
+      engine.state.settings.introSeen = true;
+      saveNow();
+    });
+  else if (offline && offline.elapsedSec >= AWAY_REPORT_MIN_SEC) app.showOffline(offline);
 
   // Fixed-step logic, decoupled from rendering.
   let last = performance.now();

@@ -1,5 +1,6 @@
 import { nodeLabel } from '../../core/expedition';
 import type { Autopilot } from '../../core/state';
+import { t } from '../../i18n';
 import type { UiContext } from '../context';
 import { h, type Panel } from '../dom';
 import { NODE_ICON, sprite } from '../sprites';
@@ -27,13 +28,13 @@ export class AutopilotPanel implements Panel {
       h(
         'div',
         { class: 'card' },
-        h('div', { class: 'card-title' }, 'Autopilot'),
-        h('div', { class: 'desc' }, 'When you do not choose a path within a few seconds — or while you are away — the robot decides by these rules. It always takes a Rest when below 50% hull.'),
-        radio ? null : h('div', { class: 'hint' }, 'Build a Radio Tower to edit the rules. Until then the robot uses the defaults below.'),
+        h('div', { class: 'card-title' }, t('ap.title')),
+        h('div', { class: 'desc' }, t('ap.desc')),
+        radio ? null : h('div', { class: 'hint' }, t('ap.needRadio')),
       ),
     );
-    const list = h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Path priority'));
-    ap.priority.forEach((t, i) => {
+    const list = h('div', { class: 'card' }, h('div', { class: 'card-title' }, t('ap.priority')));
+    ap.priority.forEach((tp, i) => {
       const move = (d: number) => {
         const p = [...ap.priority];
         const j = i + d;
@@ -46,10 +47,10 @@ export class AutopilotPanel implements Panel {
           'div',
           { class: 'prio-row' },
           h('b', {}, `${i + 1}.`),
-          sprite('onebit', NODE_ICON[t], 2),
-          h('span', { class: 'grow' }, nodeLabel(t)),
-          h('button', { class: 'btn ghost icon', disabled: !radio || i === 0, 'aria-label': 'Move up', onclick: () => move(-1) }, '▲'),
-          h('button', { class: 'btn ghost icon', disabled: !radio || i === ap.priority.length - 1, 'aria-label': 'Move down', onclick: () => move(1) }, '▼'),
+          sprite('onebit', NODE_ICON[tp], 2),
+          h('span', { class: 'grow' }, nodeLabel(tp)),
+          h('button', { class: 'btn ghost icon', disabled: !radio || i === 0, 'aria-label': t('ap.up'), onclick: () => move(-1) }, '▲'),
+          h('button', { class: 'btn ghost icon', disabled: !radio || i === ap.priority.length - 1, 'aria-label': t('ap.down'), onclick: () => move(1) }, '▼'),
         ),
       );
     });
@@ -73,15 +74,15 @@ export class AutopilotPanel implements Panel {
       h(
         'div',
         { class: 'card' },
-        h('div', { class: 'card-title' }, 'Return rules'),
-        slider('Head home when hull drops below', ap.returnHpPct, 0, 80, radio >= 1, (v) => this.set({ returnHpPct: v }), (v) => `${v}%`),
-        toggle('Head home when the cargo is full', ap.returnWhenFull, radio >= 1, (v) => this.set({ returnWhenFull: v })),
+        h('div', { class: 'card-title' }, t('ap.rules')),
+        slider(t('ap.returnHp'), ap.returnHpPct, 0, 80, radio >= 1, (v) => this.set({ returnHpPct: v }), (v) => `${v}%`),
+        toggle(t('ap.returnFull'), ap.returnWhenFull, radio >= 1, (v) => this.set({ returnWhenFull: v })),
         radio >= 2
-          ? slider('Skip elites when hull is below', ap.avoidEliteHpPct, 0, 100, true, (v) => this.set({ avoidEliteHpPct: v }), (v) => (v ? `${v}%` : 'off'))
-          : h('div', { class: 'hint' }, '▒▒ Radio Tower 2: avoid elites when hurt.'),
+          ? slider(t('ap.avoidElite'), ap.avoidEliteHpPct, 0, 100, true, (v) => this.set({ avoidEliteHpPct: v }), (v) => (v ? `${v}%` : t('ap.off')))
+          : h('div', { class: 'hint' }, t('ap.locked2')),
         radio >= 3
-          ? toggle('Relaunch automatically when repaired', ap.relaunch, true, (v) => this.set({ relaunch: v }))
-          : h('div', { class: 'hint' }, '▒▒ Radio Tower 3: automatic relaunch.'),
+          ? toggle(t('ap.relaunch'), ap.relaunch, true, (v) => this.set({ relaunch: v }))
+          : h('div', { class: 'hint' }, t('ap.locked3')),
       ),
     );
     return root;

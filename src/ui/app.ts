@@ -1,33 +1,26 @@
 import type { OfflineReport } from '../core/engine';
-import { autopilotChoice, canLaunch, nodeLabel, storageCap } from '../core/expedition';
+import { autopilotChoice, canLaunch, storageCap } from '../core/expedition';
 import { bossById } from '../data/enemies';
 import { eventById } from '../data/events';
-import { moduleById } from '../data/modules';
 import { stratumById } from '../data/strata';
+import { getLang, LANGS, onLangChange, setLang, t } from '../i18n';
 import { formatDuration, formatNumber } from '../utils/format';
 import type { UiContext } from './context';
 import { h, setDisabled, setText, setWidth, toggleClass, type Panel } from './dom';
 import { AutopilotPanel } from './panels/autopilot';
 import { CampPanel } from './panels/camp';
-import { JournalPanel } from './panels/journal';
-import { RigPanel } from './panels/rig';
+import { GuidePanel } from './panels/guide';
+import { JournalPanel, journalText } from './panels/journal';
+import { modName, RigPanel } from './panels/rig';
 import { NODE_ICON, RES_ICON, sprite } from './sprites';
 
-const TABS: { id: string; label: string; flag: string | null }[] = [
-  { id: 'rig', label: 'RIG', flag: null },
-  { id: 'camp', label: 'CAMP', flag: null },
-  { id: 'autopilot', label: 'AUTOPILOT', flag: 'radio' },
-  { id: 'journal', label: 'JOURNAL', flag: null },
+const TABS: { id: string; key: string; flag: string | null }[] = [
+  { id: 'rig', key: 'tab.rig', flag: null },
+  { id: 'camp', key: 'tab.camp', flag: null },
+  { id: 'autopilot', key: 'tab.autopilot', flag: 'radio' },
+  { id: 'journal', key: 'tab.journal', flag: null },
+  { id: 'guide', key: 'tab.guide', flag: null },
 ];
-
-const NODE_HINT: Record<string, string> = {
-  fight: 'scrap, maybe copper',
-  elite: 'tough — carries a blueprint',
-  cache: 'loot without a fight',
-  rest: 'repair 35% hull',
-  event: 'a choice, a risk',
-  boss: 'the Warden',
-};
 
 /** HTML layer around the Phaser canvas. Rebuilds pieces only when their signature changes. */
 export class App {
@@ -48,7 +41,7 @@ export class App {
     root: HTMLElement,
     private ui: UiContext,
   ) {
-    this.panels = { rig: new RigPanel(ui), camp: new CampPanel(ui), autopilot: new AutopilotPanel(ui), journal: new JournalPanel(ui) };
+    this.panels = { rig: new RigPanel(ui), camp: new CampPanel(ui), autopilot: new AutopilotPanel(ui), journal: new JournalPanel(ui), guide: new GuidePanel(ui) };
     const e = this.el;
     const b = (k: string, el: HTMLElement) => ((e[k] = el), el);
     this.stage = h('div', { id: 'stage' });
@@ -56,17 +49,17 @@ export class App {
     this.tabBar = h('nav', { class: 'tabs', role: 'tablist' });
     this.ops = h('div', { class: 'ops' });
 
-    const res = (key: keyof typeof RES_ICON, title: string) =>
-      b(`${key}Box`, h('div', { class: `cur ${key}`, title }, sprite('onebit', RES_ICON[key], 1), b(key, h('b', {}))));
+    const res = (key: keyof typeof RES_ICON) => b(`${key}Box`, h('div', { class: `cur ${key}` }, sprite('onebit', RES_ICON[key], 1), b(key, h('b', {}))));
     const hud = h(
       'header',
       { class: 'hud' },
       h('div', { class: 'brand' }, 'RUSTHEART'),
       h('div', { class: 'grow' }),
-      res('scrap', 'Scrap'),
-      res('copper', 'Copper'),
-      res('cores', 'Warden cores'),
-      h('button', { class: 'btn ghost icon', 'aria-label': 'Settings', onclick: () => this.openSettings() }, '⚙︎'),
+      res('scrap'),
+      res('copper'),
+      res('cores'),
+      h('button', { class: 'btn ghost icon', 'aria-label': 'Guide', onclick: () => this.setTab('guide') }, '?'),
+      b('settingsBtn', h('button', { class: 'btn ghost icon', onclick: () => this.openSettings() }, '⚙︎')),
     );
     const bars = h(
       'div',
@@ -76,33 +69,35 @@ export class App {
       b('crates', h('div', { class: 'crates' })),
     );
     root.append(
-      h(
-        'div',
-        { class: 'layout' },
-        hud,
-        h('section', { class: 'play' }, h('div', { class: 'stage-wrap' }, this.stage), bars, this.ops),
-        h('section', { class: 'side' }, this.tabBar, this.panelHost),
-      ),
+      h('div', { class: 'layout' }, hud, h('section', { class: 'play' }, h('div', { class: 'stage-wrap' }, this.stage), bars, this.ops), h('section', { class: 'side' }, this.tabBar, this.panelHost)),
     );
     this.bindEvents();
+    onLangChange(() => this.refreshAll());
+  }
+
+  /** Force every piece of DOM to rebuild (after a language change). */
+  refreshAll(): void {
+    this.panelSig = '';
+    this.tabSig = '';
+    this.opsSig = '';
+    this.el.crates.dataset.sig = '';
+    this.update();
   }
 
   private bindEvents(): void {
     const b = this.ui.engine.bus;
-    const t = this.ui.toasts;
-    b.on('unlock', (e) => t.show(e.message, 'unlock', 6000));
-    b.on('blueprint', (e) => t.show(`Blueprint found: ${moduleById(e.defId).name}. It will be in the Workshop when the robot is home.`, 'loot', 5000));
-    b.on('combo', (e) => t.show(`Discovery: ${e.name}!`, 'unlock', 5000));
-    b.on('lore', () => t.show('An echo log was recovered. See the Journal.', 'lore'));
-    b.on('error', (e) => t.show(e.text, 'danger'));
-    b.on('eventResult', (e) => t.show(e.text, 'lore'));
+    const toast = this.ui.toasts;
+    b.on('unlock', (e) => toast.show(t(`unlock.${e.flag}`), 'unlock', 6000));
+    b.on('blueprint', (e) => toast.show(t('toast.blueprint', { m: modName(e.defId) }), 'loot', 5000));
+    b.on('combo', (e) => toast.show(t('toast.combo', { c: t(`combo.${e.id}.name`) }), 'unlock', 5000));
+    b.on('lore', () => toast.show(t('toast.lore'), 'lore'));
+    b.on('error', (e) => toast.show(t(e.key), 'danger'));
+    b.on('eventResult', (e) => t(e.key) && toast.show(t(e.key), 'lore'));
     b.on('returned', (e) => {
       const r = e.report;
-      t.show(
-        r.bossDefeated ? `The Warden is down! Tier ${this.ui.engine.state.tierUnlocked} is open. +${r.scrap} scrap, +${r.copper} copper, +${r.cores} core.` : `${r.broken ? 'Back, battered' : 'Back at camp'}: +${r.scrap} scrap, +${r.copper} copper${r.blueprints.length ? `, ${r.blueprints.length} blueprint(s)` : ''}.`,
-        r.broken ? 'danger' : 'loot',
-        5000,
-      );
+      const p = { s: r.scrap, c: r.copper, k: r.cores, n: r.blueprints.length, tier: this.ui.engine.state.tierUnlocked };
+      const key = r.bossDefeated ? 'toast.boss' : r.broken ? 'toast.backBroken' : r.blueprints.length ? 'toast.backBp' : 'toast.back';
+      toast.show(t(key, p), r.broken ? 'danger' : 'loot', 5000);
       this.ui.actions.saveNow();
     });
   }
@@ -112,6 +107,7 @@ export class App {
     this.seenTabs.add(id);
     this.panelSig = '';
     this.tabSig = '';
+    this.update();
   }
 
   private renderTabs(): void {
@@ -122,7 +118,7 @@ export class App {
     this.tabSig = sig;
     this.tabBar.replaceChildren(
       ...tabs.map((tb) =>
-        h('button', { class: `tab ${tb.id === this.active ? 'on' : ''} ${this.seenTabs.has(tb.id) ? '' : 'new'}`, role: 'tab', onclick: () => (this.ui.sfx.click(), this.setTab(tb.id)) }, tb.label),
+        h('button', { class: `tab ${tb.id === this.active ? 'on' : ''} ${this.seenTabs.has(tb.id) ? '' : 'new'}`, role: 'tab', onclick: () => (this.ui.sfx.click(), this.setTab(tb.id)) }, t(tb.key)),
       ),
     );
   }
@@ -143,37 +139,48 @@ export class App {
     this.live = {};
     const parts: HTMLElement[] = [];
     if (!x) {
-      // At camp: launch
       const tiers = h('div', { class: 'segmented tiers' });
-      for (let t = 1; t <= s.tierUnlocked; t++)
-        tiers.append(h('button', { class: `seg ${t === s.selectedTier ? 'on' : ''}`, onclick: () => ((s.selectedTier = t), (this.opsSig = '')) }, `Tier ${t}`));
-      this.live.launch = h('button', { class: 'btn launch', onclick: () => eng.dispatch({ type: 'launch', tier: s.selectedTier }) }, '▼ Send the robot down');
+      for (let n = 1; n <= s.tierUnlocked; n++)
+        tiers.append(h('button', { class: `seg ${n === s.selectedTier ? 'on' : ''}`, onclick: () => ((s.selectedTier = n), (this.opsSig = '')) }, t('ops.tier', { n })));
+      this.live.launch = h('button', { class: 'btn launch', onclick: () => eng.dispatch({ type: 'launch', tier: s.selectedTier }) }, t('ops.launch'));
       this.live.launchWhy = h('div', { class: 'hint' });
-      parts.push(h('div', { class: 'card' }, h('div', { class: 'row' }, s.tierUnlocked > 1 ? tiers : h('div', { class: 'card-title grow' }, stratumById('rust').name), this.live.launch), this.live.launchWhy));
+      parts.push(h('div', { class: 'card' }, h('div', { class: 'row' }, s.tierUnlocked > 1 ? tiers : h('div', { class: 'card-title grow' }, t('zone.rust')), this.live.launch), this.live.launchWhy));
       if (s.stats.deepestLayer > 4) {
-        const boss = bossById(stratumById('rust').bossId);
-        parts.push(h('div', { class: 'card warden' }, h('div', { class: 'card-title' }, `⚠ ${boss.name} waits at layer 8`), h('ul', { class: 'phases' }, ...boss.profile.map((p) => h('li', {}, p)))));
+        const st = stratumById('rust');
+        const boss = bossById(st.bossId);
+        parts.push(
+          h(
+            'div',
+            { class: 'card warden' },
+            h('div', { class: 'card-title' }, t('ops.wardenAt', { b: t(`boss.${boss.id}.name`), layer: st.layers })),
+            h('div', { class: 'tags' }, ...boss.tags.map((tag) => h('span', { class: 'tag' }, t(`bosstag.${tag}`)))),
+            h('ul', { class: 'phases' }, h('li', {}, t(`boss.${boss.id}.p0`)), h('li', {}, t(`boss.${boss.id}.p1`))),
+          ),
+        );
       }
       const r = s.lastReport;
-      if (r)
+      if (r) {
+        const result = t(r.bossDefeated ? 'ops.res.boss' : r.broken ? 'ops.res.broken' : 'ops.res.returned');
+        const loot =
+          t('ops.loot', { s: r.scrap, c: r.copper }) +
+          (r.cores ? t('ops.lootCore', { k: r.cores }) : '') +
+          (r.blueprints.length ? t('ops.lootBp', { list: r.blueprints.map(modName).join(', ') }) : '') +
+          (r.cratesLost ? t('ops.lost', { n: r.cratesLost }) : '') +
+          (r.overflow ? t('ops.overflow', { n: r.overflow }) : '');
         parts.push(
           h(
             'div',
             { class: 'card report' },
-            h('div', { class: 'card-title' }, `Last expedition${r.tier > 1 ? ` (tier ${r.tier})` : ''}: ${r.bossDefeated ? 'Warden defeated' : r.broken ? 'broke down' : 'returned'} on layer ${r.layers}`),
-            h(
-              'div',
-              { class: 'desc' },
-              `+${r.scrap} scrap · +${r.copper} copper${r.cores ? ` · +${r.cores} core` : ''}${r.blueprints.length ? ` · blueprints: ${r.blueprints.map((b) => moduleById(b).name).join(', ')}` : ''}${r.cratesLost ? ` · ${r.cratesLost} crate(s) lost` : ''}${r.overflow ? ` · ${r.overflow} left outside (storage full)` : ''}`,
-            ),
+            h('div', { class: 'card-title' }, t('ops.last', { tier: r.tier > 1 ? t('ops.lastTier', { n: r.tier }) : '', result, layer: r.layers })),
+            h('div', { class: 'desc' }, loot),
           ),
         );
+      }
     } else {
-      // Map strip
       const map = h('div', { class: 'map' });
       x.map.forEach((layer, li) => {
         const col = h('div', { class: `map-col ${li === x.layer ? 'here' : li < x.layer ? 'past' : ''}` });
-        layer.forEach((n, ni) => col.append(h('span', { class: `map-node ${x.path[li] === ni ? 'taken' : ''}`, title: nodeLabel(n.type) }, sprite('onebit', NODE_ICON[n.type], 1))));
+        layer.forEach((n, ni) => col.append(h('span', { class: `map-node ${x.path[li] === ni ? 'taken' : ''}`, title: t(`node.${n.type}`) }, sprite('onebit', NODE_ICON[n.type], 1))));
         map.append(col);
       });
       parts.push(map);
@@ -186,7 +193,7 @@ export class App {
           h(
             'div',
             { class: 'card fork' },
-            h('div', { class: 'card-title' }, `Fork on layer ${x.layer + 1}. Where to?`),
+            h('div', { class: 'card-title' }, t('ops.fork', { layer: x.layer + 1 })),
             h(
               'div',
               { class: 'choices' },
@@ -195,7 +202,7 @@ export class App {
                   'button',
                   { class: `choice ${i === auto ? 'auto' : ''}`, onclick: () => eng.dispatch({ type: 'choose', index: i }) },
                   sprite('onebit', NODE_ICON[n.type], 2),
-                  h('div', {}, h('b', {}, nodeLabel(n.type)), h('div', { class: 'desc' }, NODE_HINT[n.type])),
+                  h('div', {}, h('b', {}, t(`node.${n.type}`)), h('div', { class: 'desc' }, t(`nodehint.${n.type}`))),
                 ),
               ),
             ),
@@ -203,26 +210,29 @@ export class App {
           ),
         );
       } else if (x.phase === 'event') {
-        const node = x.map[x.layer][x.path[x.layer]];
-        const ev = eventById(node.eventId!);
+        const ev = eventById(x.map[x.layer][x.path[x.layer]].eventId!);
         this.live.countdown = h('div', { class: 'hint' });
         parts.push(
           h(
             'div',
             { class: 'card fork' },
-            h('div', { class: 'card-title' }, ev.text),
+            h('div', { class: 'card-title' }, t(`event.${ev.id}.text`)),
             h(
               'div',
               { class: 'choices' },
               ...ev.options.map((o, i) =>
-                h('button', { class: `choice ${i === ev.safe ? 'auto' : ''}`, onclick: () => eng.dispatch({ type: 'eventChoice', index: i }) }, h('div', {}, h('b', {}, o.label), h('div', { class: 'desc' }, o.chance < 1 ? `${Math.round(o.chance * 100)}% chance` : 'safe'))),
+                h(
+                  'button',
+                  { class: `choice ${i === ev.safe ? 'auto' : ''}`, onclick: () => eng.dispatch({ type: 'eventChoice', index: i }) },
+                  h('div', {}, h('b', {}, t(`event.${ev.id}.o${i}`)), h('div', { class: 'desc' }, o.chance < 1 ? t('ops.chance', { p: Math.round(o.chance * 100) }) : t('ops.safe'))),
+                ),
               ),
             ),
             this.live.countdown,
           ),
         );
       }
-      if (x.phase !== 'return') parts.push(h('div', { class: 'row end' }, h('button', { class: 'btn ghost', onclick: () => eng.dispatch({ type: 'recall' }) }, '▲ Recall with cargo')));
+      if (x.phase !== 'return') parts.push(h('div', { class: 'row end' }, h('button', { class: 'btn ghost', onclick: () => eng.dispatch({ type: 'recall' }) }, t('ops.recall'))));
     }
     this.ops.replaceChildren(...parts);
   }
@@ -231,14 +241,11 @@ export class App {
     const eng = this.ui.engine;
     const s = eng.state;
     const x = s.exp;
-    if (this.live.countdown && x) {
-      const secs = Math.max(0, Math.ceil(x.waitTimer));
-      setText(this.live.countdown, x.phase === 'event' ? `No answer in ${secs}s → the robot plays it safe.` : `No choice in ${secs}s → autopilot takes the highlighted path.`);
-    }
+    if (this.live.countdown && x) setText(this.live.countdown, t(x.phase === 'event' ? 'ops.countEvent' : 'ops.countFork', { s: Math.max(0, Math.ceil(x.waitTimer)) }));
     if (this.live.launch) {
       const why = canLaunch(eng);
       setDisabled(this.live.launch, !!why);
-      setText(this.live.launchWhy!, why ?? `Hull ${Math.round((s.robot.hp / eng.rig.maxHp) * 100)}% · cargo ${eng.rig.cargo} crates · ${formatNumber(eng.rig.dps)} dmg/s`);
+      setText(this.live.launchWhy!, why ? t(why) : t('ops.launchInfo', { hp: Math.round((s.robot.hp / eng.rig.maxHp) * 100), cargo: eng.rig.cargo, dps: formatNumber(eng.rig.dps) }));
     }
   }
 
@@ -249,7 +256,7 @@ export class App {
     const e = this.el;
 
     this.renderTabs();
-    const tab = TABS.find((t) => t.id === this.active);
+    const tab = TABS.find((x) => x.id === this.active);
     if (!tab || (tab.flag && !s.flags.includes(tab.flag))) this.active = 'rig';
     const panel = this.panels[this.active];
     const sig = panel.signature();
@@ -268,19 +275,27 @@ export class App {
     }
     this.updateOps();
 
-    // HUD
     const cap = storageCap(eng);
-    setText(e.scrap, `${formatNumber(s.scrap)}`);
+    setText(e.scrap, formatNumber(s.scrap));
+    e.scrapBox.title = t('res.scrap');
     toggleClass(e.scrapBox, 'full', s.scrap >= cap.scrap);
-    setText(e.copper, `${formatNumber(s.copper)}`);
+    setText(e.copper, formatNumber(s.copper));
+    e.copperBox.title = t('res.copper');
     toggleClass(e.copperBox, 'hidden', s.stats.copperEarned === 0 && s.copper === 0);
     toggleClass(e.copperBox, 'full', s.copper >= cap.copper);
     setText(e.cores, `${s.cores}`);
+    e.coresBox.title = t('res.cores');
     toggleClass(e.coresBox, 'hidden', s.cores === 0 && s.stats.bossesWon === 0);
+    e.settingsBtn.setAttribute('aria-label', t('settings.title'));
 
     setWidth(e.hullFill, s.robot.hp / rig.maxHp);
     toggleClass(e.hullFill.parentElement!, 'low', s.robot.hp / rig.maxHp < 0.3);
-    setText(e.hullText, `HULL ${formatNumber(Math.max(0, s.robot.hp))}/${formatNumber(rig.maxHp)}${rig.shieldMax ? ` · SHIELD ${formatNumber(s.robot.shield)}` : ''}${rig.armor ? ` · ARMOR ${formatNumber(rig.armor)}` : ''}`);
+    setText(
+      e.hullText,
+      t('hud.hull', { a: formatNumber(Math.max(0, s.robot.hp)), b: formatNumber(rig.maxHp) }) +
+        (rig.shieldMax ? t('hud.shield', { n: formatNumber(s.robot.shield) }) : '') +
+        (rig.armor ? t('hud.armor', { n: formatNumber(rig.armor) }) : ''),
+    );
     toggleClass(e.shieldRow, 'hidden', rig.shieldMax <= 0);
     if (rig.shieldMax > 0) setWidth(e.shieldFill, s.robot.shield / rig.shieldMax);
 
@@ -288,26 +303,56 @@ export class App {
     const csig = `${crates}/${rig.cargo}`;
     if (e.crates.dataset.sig !== csig) {
       e.crates.dataset.sig = csig;
-      const icons: HTMLElement[] = [h('span', { class: 'lvl' }, 'CARGO ')];
+      const icons: HTMLElement[] = [h('span', { class: 'lvl' }, `${t('hud.cargo')} `)];
       for (let i = 0; i < rig.cargo; i++) icons.push(sprite('onebit', 390, 1, i < crates ? 'crate full' : 'crate'));
       e.crates.replaceChildren(...icons);
     }
   }
 
+  showIntro(onDone: () => void): void {
+    const langRow = this.langPicker();
+    const body = h('div', {}, langRow, h('p', {}, t('intro.p1')), h('p', {}, t('intro.p2')), h('p', { class: 'desc' }, t('intro.p3')));
+    this.ui.modal.open(t('intro.title'), body, [h('button', { class: 'btn', onclick: () => this.ui.modal.close() }, t('intro.start'))], onDone, () => this.showIntro(onDone));
+  }
+
+  private langPicker(): HTMLElement {
+    const row = h('div', { class: 'segmented langs' });
+    for (const l of LANGS) {
+      row.append(
+        h(
+          'button',
+          {
+            class: `seg ${getLang() === l.id ? 'on' : ''}`,
+            onclick: () => {
+              this.ui.engine.state.settings.lang = l.id;
+              setLang(l.id);
+              this.ui.actions.saveNow();
+              // reopen whichever dialog is showing, now in the new language
+              const reopen = this.ui.modal.reopen;
+              if (reopen) reopen();
+            },
+          },
+          l.label,
+        ),
+      );
+    }
+    return row;
+  }
+
   showOffline(r: OfflineReport): void {
-    const lines: HTMLElement[] = [h('p', {}, `You were away for ${formatDuration(r.elapsedSec)}.${r.capped ? ` The robot only remembers the last ${formatDuration(r.countedSec)}.` : ''}`)];
-    if (r.clockAnomaly) lines.push(h('p', { class: 'danger-text' }, 'The clock ran backwards. Nothing happened.'));
+    const lines: HTMLElement[] = [h('p', {}, t('offline.away', { d: formatDuration(r.elapsedSec) }) + (r.capped ? t('offline.capped', { d: formatDuration(r.countedSec) }) : ''))];
+    if (r.clockAnomaly) lines.push(h('p', { class: 'danger-text' }, t('offline.clock')));
     if (r.expeditions || r.scrap || r.copper)
-      lines.push(h('p', {}, `${r.expeditions} expedition(s) finished: `, h('b', {}, `+${formatNumber(r.scrap)} scrap, +${formatNumber(r.copper)} copper${r.cores ? `, +${r.cores} core` : ''}`), r.breakdowns ? ` (${r.breakdowns} breakdown${r.breakdowns > 1 ? 's' : ''})` : '', '.'));
-    else if (!r.clockAnomaly) lines.push(h('p', { class: 'desc' }, 'The robot waited at camp. With a Radio Tower (level 3) it can relaunch on its own.'));
-    if (r.journal.length) lines.push(h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'From the journal'), ...r.journal.slice(-12).map((j) => h('div', { class: 'log' }, j))));
-    this.ui.modal.open('While you were away', h('div', {}, ...lines), [h('button', { class: 'btn', onclick: () => this.ui.modal.close() }, 'Back to the shaft')]);
+      lines.push(h('p', {}, t('offline.exps', { n: r.expeditions }), ' ', h('b', {}, t('offline.loot', { s: formatNumber(r.scrap), c: formatNumber(r.copper) })), r.breakdowns ? t('offline.breakdowns', { n: r.breakdowns }) : ''));
+    else if (!r.clockAnomaly) lines.push(h('p', { class: 'desc' }, t('offline.idle')));
+    if (r.journal.length) lines.push(h('div', { class: 'card' }, h('div', { class: 'card-title' }, t('offline.journal')), ...r.journal.slice(-12).map((j) => h('div', { class: 'log' }, journalText(j)))));
+    this.ui.modal.open(t('offline.title'), h('div', {}, ...lines), [h('button', { class: 'btn', onclick: () => this.ui.modal.close() }, t('offline.back'))]);
   }
 
   private openSettings(): void {
     const set = this.ui.engine.state.settings;
     const exportArea = h('textarea', { class: 'save-text', readonly: true, rows: 3 }) as HTMLTextAreaElement;
-    const importArea = h('textarea', { class: 'save-text', rows: 3, placeholder: 'Paste a save string…' }) as HTMLTextAreaElement;
+    const importArea = h('textarea', { class: 'save-text', rows: 3, placeholder: t('settings.paste') }) as HTMLTextAreaElement;
     const toggle = (label: string, get: () => boolean, put: (v: boolean) => void) => {
       const input = h('input', { type: 'checkbox' }) as HTMLInputElement;
       input.checked = get();
@@ -318,11 +363,11 @@ export class App {
     vol.value = String(set.volume);
     vol.addEventListener('input', () => (set.volume = Number(vol.value)));
     let armed = false;
-    const resetBtn = h('button', { class: 'btn danger' }, 'Hard reset');
+    const resetBtn = h('button', { class: 'btn danger' }, t('settings.reset'));
     resetBtn.addEventListener('click', () => {
       if (!armed) {
         armed = true;
-        resetBtn.textContent = 'Tap again to erase everything';
+        resetBtn.textContent = t('settings.resetConfirm');
         return;
       }
       this.ui.actions.hardReset();
@@ -330,32 +375,32 @@ export class App {
     const body = h(
       'div',
       { class: 'settings' },
-      toggle('Sound effects', () => set.sfx, (v) => (set.sfx = v)),
-      h('label', { class: 'setting' }, 'Volume ', vol),
-      toggle('Reduced motion (no screen shake)', () => set.reducedMotion, (v) => (set.reducedMotion = v)),
-      h('div', { class: 'card-title' }, 'Save'),
+      h('div', { class: 'card-title' }, t('settings.language')),
+      this.langPicker(),
+      toggle(t('settings.sfx'), () => set.sfx, (v) => (set.sfx = v)),
+      h('label', { class: 'setting' }, `${t('settings.volume')} `, vol),
+      toggle(t('settings.motion'), () => set.reducedMotion, (v) => (set.reducedMotion = v)),
+      h('button', { class: 'btn ghost', onclick: () => (this.ui.modal.close(), this.setTab('guide')) }, t('settings.guide')),
+      h('div', { class: 'card-title' }, t('settings.save')),
       h(
         'div',
         { class: 'row' },
-        h('button', { class: 'btn', onclick: () => ((exportArea.value = this.ui.actions.exportSave()), exportArea.select()) }, 'Export'),
+        h('button', { class: 'btn', onclick: () => ((exportArea.value = this.ui.actions.exportSave()), exportArea.select()) }, t('settings.export')),
         h('button', {
           class: 'btn ghost',
           onclick: () => {
             const err = this.ui.actions.importSave(importArea.value);
-            if (err) this.ui.toasts.show(err, 'danger');
+            if (err) this.ui.toasts.show(t(err), 'danger');
           },
-        }, 'Import'),
+        }, t('settings.import')),
         resetBtn,
       ),
       exportArea,
       importArea,
-      h('div', { class: 'card-title' }, 'Credits'),
-      h(
-        'p',
-        { class: 'desc' },
-        'Sprites: Kenney (www.kenney.nl) — 1-Bit Pack and Tiny Dungeon, CC0. Fonts: Pixelify Sans (Stefie Justprince) and Silkscreen (Jason Kottke), SIL Open Font License 1.1. Robot, Warden art and all sounds are generated in code.',
-      ),
+      h('div', { class: 'card-title' }, t('settings.credits')),
+      h('p', { class: 'desc' }, t('settings.creditsText')),
     );
-    this.ui.modal.open('Settings', body, [], () => this.ui.actions.saveNow());
+    this.ui.modal.open(t('settings.title'), body, [], () => this.ui.actions.saveNow(), () => this.openSettings());
   }
 }
+

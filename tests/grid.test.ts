@@ -74,11 +74,11 @@ describe('rig stats & synergies', () => {
       s.buildings.workshop = 3;
       s.modules.push({ uid: 'r', defId: 'reactor', level: 1, pos: { x: 2, y: 2, rot: 0 } });
     });
-    const note = () => eng.rig.placed.find((p) => p.inst.uid === 'm2')!.notes.join();
-    expect(note()).toContain('Overheated');
+    const note = () => eng.rig.placed.find((p) => p.inst.uid === 'm2')!.notes.map((n) => n.k).join();
+    expect(note()).toContain('note.hot');
     eng.state.modules.push({ uid: 'c', defId: 'cooler', level: 1, pos: null });
     expect(eng.dispatch({ type: 'place', uid: 'c', x: 3, y: 1, rot: 0 })).toBe(true);
-    expect(note()).not.toContain('Overheated');
+    expect(note()).not.toContain('note.hot');
   });
 
   it('magnets add cargo to adjacent holds', () => {

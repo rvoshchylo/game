@@ -24,28 +24,16 @@
       "usage": "all MVP sound effects (Web Audio synthesis)"
     },
     {
-      "name": "Pixelify Sans",
-      "source": "https://fonts.google.com/specimen/Pixelify+Sans (npm @fontsource/pixelify-sans)",
-      "author": "Stefie Justprince",
+      "name": "Tiny5",
+      "source": "https://fonts.google.com/specimen/Tiny5 (npm @fontsource/tiny5)",
+      "author": "Stefan Schmidt",
       "license": "OFL-1.1",
       "commercialUse": true,
       "attributionRequired": false,
-      "attributionText": "Pixelify Sans by Stefie Justprince, SIL Open Font License 1.1",
+      "attributionText": "Tiny5 by Stefan Schmidt, SIL Open Font License 1.1",
       "modificationAllowed": true,
       "inUse": true,
-      "usage": "headings, numbers"
-    },
-    {
-      "name": "Silkscreen",
-      "source": "https://fonts.google.com/specimen/Silkscreen (npm @fontsource/silkscreen)",
-      "author": "Jason Kottke",
-      "license": "OFL-1.1",
-      "commercialUse": true,
-      "attributionRequired": false,
-      "attributionText": "Silkscreen by Jason Kottke, SIL Open Font License 1.1",
-      "modificationAllowed": true,
-      "inUse": true,
-      "usage": "small labels"
+      "usage": "all UI and in-canvas text (Latin + Cyrillic)"
     },
     {
       "name": "1-Bit Pack",

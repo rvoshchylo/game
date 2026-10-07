@@ -18,17 +18,17 @@ export interface GameEvents {
   core: Record<string, never>;
   heal: { amount: number };
   eventStart: { eventId: string };
-  eventResult: { text: string };
+  eventResult: { key: string };
   breakdown: Record<string, never>;
   returned: { report: ExpeditionReport };
-  unlock: { flag: string; message: string };
-  combo: { id: string; name: string };
+  unlock: { flag: string };
+  combo: { id: string };
   lore: { index: number };
   crafted: { module: ModuleInst };
   merged: { module: ModuleInst };
   built: { id: string; level: number };
   rigChanged: Record<string, never>;
-  error: { text: string };
+  error: { key: string };
 }
 
 export type EventName = keyof GameEvents;

@@ -6,6 +6,7 @@ import { stratumById } from '../../data/strata';
 import type { GameEngine } from '../../core/engine';
 import { STRATUM_ID } from '../../core/expedition';
 import { ONEBIT_URL, TINY_URL } from '../../config/constants';
+import { t } from '../../i18n';
 import { formatNumber } from '../../utils/format';
 import { FloatingNumbers } from '../fx';
 import { generateRock, generateTextures } from '../textures';
@@ -15,8 +16,8 @@ export const VIEW_H = 270;
 const FLOOR_Y = 222;
 const BOT_X = 120;
 const BOT_Y = 186;
-const FONT = '"Pixelify Sans", system-ui, sans-serif';
-/** Canvas text cannot disable ligatures; a zero-width non-joiner breaks Pixelify's odd 'fi'. */
+const FONT = '"Tiny5", system-ui, sans-serif';
+/** Canvas text cannot disable ligatures; a zero-width non-joiner keeps 'fi'/'fl' as separate letters. */
 const noLig = (s: string): string => s.replace(/f(?=[il])/g, 'f\u200C');
 /** Camp layout: where each building stands. */
 const CAMP_SLOTS: Record<string, number> = { workshop: 220, storage: 290, dock: 360, radio: 420, forge: 165 };
@@ -78,7 +79,7 @@ export class ShaftScene extends Phaser.Scene {
       this.buildings.set(b.id, this.add.image(x, FLOOR_Y - 24, 'onebit', b.icon).setScale(3).setVisible(false));
       this.buildingLabels.set(
         b.id,
-        this.add.text(x, FLOOR_Y + 6, b.name, { fontFamily: FONT, fontSize: '10px', color: '#b8aea3' }).setOrigin(0.5, 0).setResolution(2).setVisible(false),
+        this.add.text(x, FLOOR_Y + 6, '', { fontFamily: FONT, fontSize: '13px', color: '#b8aea3' }).setOrigin(0.5, 0).setResolution(2).setVisible(false),
       );
     }
 
@@ -108,7 +109,7 @@ export class ShaftScene extends Phaser.Scene {
       .setDepth(20)
       .setResolution(2);
     this.caption = this.add
-      .text(VIEW_W / 2, 14, '', { fontFamily: FONT, fontSize: '12px', color: '#f2e9dc', stroke: '#120d0b', strokeThickness: 3 })
+      .text(VIEW_W / 2, 14, '', { fontFamily: FONT, fontSize: '16px', color: '#f2e9dc', stroke: '#120d0b', strokeThickness: 3 })
       .setOrigin(0.5, 0)
       .setDepth(20)
       .setResolution(2);
@@ -181,9 +182,9 @@ export class ShaftScene extends Phaser.Scene {
         this.tweens.add({ targets: img, x, duration: 350, ease: 'Cubic.out' });
       });
       if (e.enemies.some((x) => x.boss)) {
-        this.showBanner(`WARDEN\n${bossById(e.enemies[0].defId).name.toUpperCase()}`, '#e84a5f');
+        this.showBanner(`${t('scene.warden')}\n${t(`boss.${bossById(e.enemies[0].defId).id}.name`).toUpperCase()}`, '#e84a5f');
         this.shake(400, 0.01);
-      } else if (e.enemies.some((x) => x.elite)) this.showBanner('ELITE', '#e8c070');
+      } else if (e.enemies.some((x) => x.elite)) this.showBanner(t('scene.elite'), '#e8c070');
     });
     on('moduleFire', (e) => {
       const def = moduleById(e.defId);
@@ -225,18 +226,18 @@ export class ShaftScene extends Phaser.Scene {
       this.tweens.add({ targets: ring, scale: 14, alpha: 0, duration: 700, onComplete: () => ring.destroy() });
       this.shake(220, 0.008);
     });
-    on('bossPhase', () => this.showBanner('THE SHELL CLOSES', '#e84a5f'));
+    on('bossPhase', () => this.showBanner(t('scene.shell'), '#e84a5f'));
     on('fightEnd', (e) => {
-      if (!e.won) this.showBanner('BREAKDOWN', '#e84a5f');
+      if (!e.won) this.showBanner(t('scene.breakdown'), '#e84a5f');
       this.time.delayedCall(250, () => this.syncFight());
     });
     on('loot', (e) => {
       const crate = this.add.image(360, FLOOR_Y - 20, 'onebit', 390).setScale(2).setDepth(14);
       this.tweens.add({ targets: crate, x: BOT_X, y: BOT_Y - 30, alpha: e.stored ? 1 : 0, duration: 500, ease: 'Cubic.in', onComplete: () => crate.destroy() });
-      if (!e.stored) this.numbers.spawn(360, FLOOR_Y - 50, 'no room!', '#e84a5f', 11);
+      if (!e.stored) this.numbers.spawn(360, FLOOR_Y - 50, t('scene.noRoom'), '#e84a5f', 11);
     });
-    on('blueprint', (e) => this.showBanner(`BLUEPRINT\n${moduleById(e.defId).name}`, '#7fd6c2'));
-    on('core', () => this.showBanner('WARDEN CORE', '#ffd166'));
+    on('blueprint', (e) => this.showBanner(`${t('scene.blueprint')}\n${t(`mod.${e.defId}.name`)}`, '#7fd6c2'));
+    on('core', () => this.showBanner(t('scene.core'), '#ffd166'));
     on('heal', (e) => e.amount > 0 && this.numbers.spawn(BOT_X, BOT_Y - 40, `+${formatNumber(e.amount)}`, '#7fd68c', 12));
     on('breakdown', () => this.shake(300, 0.01));
     on('built', () => this.sparks.explode(30, CAMP_SLOTS.workshop, FLOOR_Y - 30));
@@ -264,7 +265,7 @@ export class ShaftScene extends Phaser.Scene {
       const lvl = s.buildings[id] ?? 0;
       const show = mode === 'camp' && lvl > 0;
       img.setVisible(show).setScale(2.5 + lvl * 0.25);
-      this.buildingLabels.get(id)!.setVisible(show).setText(noLig(`${BUILDINGS.find((b) => b.id === id)!.name}${lvl > 1 ? ` ${lvl}` : ''}`));
+      this.buildingLabels.get(id)!.setVisible(show).setText(noLig(`${t(`bld.${id}.name`)}${lvl > 1 ? ` ${lvl}` : ''}`));
     }
 
     // Robot motion
@@ -308,11 +309,11 @@ export class ShaftScene extends Phaser.Scene {
 
     // Caption
     let cap = '';
-    if (!exp) cap = hpRatio < 1 ? `Camp · repairing ${Math.round(hpRatio * 100)}%` : 'Camp · ready';
+    if (!exp) cap = hpRatio < 1 ? t('scene.campRepair', { p: Math.round(hpRatio * 100) }) : t('scene.campReady');
     else {
       const layers = exp.map.length;
-      const what = exp.phase === 'return' ? (exp.broken ? 'limping home' : 'heading home') : node ? node.type : 'choosing a path';
-      cap = `${stratumById(exp.stratumId).name}${exp.tier > 1 ? ` · tier ${exp.tier}` : ''} · layer ${exp.layer + 1}/${layers} · ${what}`;
+      const what = exp.phase === 'return' ? t(exp.broken ? 'scene.limping' : 'scene.home') : node ? t(`node.${node.type}`) : t('scene.choosing');
+      cap = t('scene.layer', { z: `@zone.${exp.stratumId}`, tier: exp.tier > 1 ? t('scene.tier', { n: exp.tier }) : '', l: exp.layer + 1, n: layers, what });
     }
     cap = noLig(cap);
     if (this.caption.text !== cap) this.caption.setText(cap);

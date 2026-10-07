@@ -12,8 +12,8 @@
   --danger: #e84a5f;
   --text: #f2e9dc;
   --muted: #b8aea3;
-  --font: 'Pixelify Sans', system-ui, sans-serif;
-  --font-small: 'Silkscreen', 'Pixelify Sans', system-ui, sans-serif;
+  --font: 'Tiny5', system-ui, sans-serif;
+  --font-small: 'Tiny5', system-ui, sans-serif;
   --r: 4px;
   color-scheme: dark;
 }
@@ -30,7 +30,6 @@ body {
   font-family: var(--font);
   font-size: 16px;
   -webkit-tap-highlight-color: transparent;
-  /* Pixelify Sans ships an odd 'fi' ligature */
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0, 'clig' 0;
   overscroll-behavior: none;
@@ -1034,4 +1033,20 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* ══ i18n & guide ═════════════════════════════════════ */
+.segmented.langs {
+  margin-bottom: 10px;
+}
+details.guide summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+details.guide p {
+  margin: 6px 0 0;
+  line-height: 1.45;
 }

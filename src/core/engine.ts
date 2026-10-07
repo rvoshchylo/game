@@ -4,7 +4,7 @@ import type { Ctx } from './context';
 import { EventBus } from './events';
 import { choose, eventChoice, launch, recall, tickExpedition } from './expedition';
 import { computeRig, type RigStats } from './grid';
-import type { GameState } from './state';
+import type { GameState, JournalEntry } from './state';
 
 export const TICK = 0.1;
 export const OFFLINE_STEP = 0.25;
@@ -19,7 +19,7 @@ export interface OfflineReport {
   copper: number;
   cores: number;
   breakdowns: number;
-  journal: string[];
+  journal: JournalEntry[];
   clockAnomaly: boolean;
 }
 
@@ -105,7 +105,7 @@ export class GameEngine implements Ctx {
     report.expeditions = s.stats.expeditions - before.exp;
     report.breakdowns = s.stats.breakdowns - before.br;
     const idx = s.journal.lastIndexOf(before.last!);
-    report.journal = s.journal.slice(idx + 1).map((j) => j.text);
+    report.journal = s.journal.slice(idx + 1);
     return report;
   }
 

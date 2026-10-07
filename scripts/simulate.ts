@@ -19,7 +19,7 @@ const fmt = (sec: number) => `${Math.floor(sec / 3600)}h${String(Math.floor((sec
 eng.bus.on('unlock', (e) => log.push(`${fmt(t)} unlock ${e.flag}`));
 eng.bus.on('built', (e) => log.push(`${fmt(t)} built ${e.id} L${e.level}`));
 eng.bus.on('blueprint', (e) => log.push(`${fmt(t)} blueprint ${e.defId}`));
-eng.bus.on('combo', (e) => log.push(`${fmt(t)} combo ${e.name}`));
+eng.bus.on('combo', (e) => log.push(`${fmt(t)} combo ${e.id}`));
 eng.bus.on('returned', (e) => {
   const r = e.report;
   if (r.bossDefeated || r.broken) log.push(`${fmt(t)} exp#${s.stats.expeditions} tier${r.tier} layers=${r.layers} ${r.bossDefeated ? 'WARDEN DOWN' : 'broken'} +${r.scrap}s +${r.copper}c`);

@@ -1,7 +1,7 @@
 import { buildingVisible, canAfford, nextBuildCost } from '../../core/camp';
 import { storageCap } from '../../core/expedition';
 import { BUILDINGS } from '../../data/buildings';
-import { UNLOCKS } from '../../data/unlocks';
+import { t } from '../../i18n';
 import type { UiContext } from '../context';
 import { h, setDisabled, setText, type Panel } from '../dom';
 import { sprite } from '../sprites';
@@ -23,30 +23,27 @@ export class CampPanel implements Panel {
     const s = this.ui.engine.state;
     this.btns = [];
     this.capEl = h('div', { class: 'sub' });
-    const root = h('div', { class: 'panel-inner' }, h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Camp'), h('div', { class: 'desc' }, 'Every building opens a new way to play. Upgrades change what you can do, not just numbers.'), this.capEl));
+    const root = h('div', { class: 'panel-inner' }, h('div', { class: 'card' }, h('div', { class: 'card-title' }, t('camp.title')), h('div', { class: 'desc' }, t('camp.desc')), this.capEl));
     for (const b of BUILDINGS) {
       if (!buildingVisible(s, b.id)) continue;
       const lvl = s.buildings[b.id] ?? 0;
       const cost = nextBuildCost(s, b.id);
-      const btn = h('button', { class: 'btn buy', onclick: () => this.ui.engine.dispatch({ type: 'build', id: b.id }) }, cost ? `${lvl ? 'Upgrade' : 'Build'} · ${costText(cost)}` : 'MAX');
+      const btn = h('button', { class: 'btn buy', onclick: () => this.ui.engine.dispatch({ type: 'build', id: b.id }) }, cost ? t(lvl ? 'camp.upgrade' : 'camp.build', { cost: costText(cost) }) : t('camp.max'));
       if (cost) this.btns.push({ id: b.id, el: btn });
       else btn.disabled = true;
       root.append(
         h(
           'div',
           { class: `card ${lvl ? '' : 'site'}` },
-          h('div', { class: 'row' }, sprite('onebit', b.icon, 2), h('div', { class: 'grow' }, h('div', { class: 'card-title' }, b.name, ' ', h('span', { class: 'lvl' }, lvl ? `Lv ${lvl}/${b.levels.length}` : 'construction site')), h('div', { class: 'desc' }, b.description))),
-          lvl ? h('div', { class: 'sub' }, `Now: ${b.levels[lvl - 1].text}`) : null,
-          cost ? h('div', { class: 'desc' }, `Next: ${b.levels[lvl].text}`) : null,
+          h('div', { class: 'row' }, sprite('onebit', b.icon, 2), h('div', { class: 'grow' }, h('div', { class: 'card-title' }, t(`bld.${b.id}.name`), ' ', h('span', { class: 'lvl' }, lvl ? t('camp.lvl', { l: lvl, m: b.levels.length }) : t('camp.site'))), h('div', { class: 'desc' }, t(`bld.${b.id}.desc`)))),
+          lvl ? h('div', { class: 'sub' }, t('camp.now', { t: t(`bld.${b.id}.l${lvl}`) })) : null,
+          cost ? h('div', { class: 'desc' }, t('camp.next', { t: t(`bld.${b.id}.l${lvl + 1}`) })) : null,
           h('div', { class: 'row end' }, btn),
         ),
       );
     }
     const hidden = BUILDINGS.filter((b) => !buildingVisible(s, b.id)).length;
-    if (hidden) {
-      const next = UNLOCKS.find((u) => !s.flags.includes(u.flag) && BUILDINGS.some((b) => b.flag === u.flag));
-      root.append(h('div', { class: 'card faint' }, `▒▒ ${hidden} more site${hidden > 1 ? 's' : ''} to discover.${next ? ' Keep sending the robot out.' : ''}`));
-    }
+    if (hidden) root.append(h('div', { class: 'card faint' }, t('camp.hidden', { n: hidden })));
     return root;
   }
 
@@ -55,7 +52,7 @@ export class CampPanel implements Panel {
     for (const b of this.btns) setDisabled(b.el, !canAfford(s, nextBuildCost(s, b.id) ?? {}));
     if (this.capEl) {
       const cap = storageCap(this.ui.engine);
-      setText(this.capEl, `Storage: ${Math.floor(s.scrap)}/${cap.scrap} scrap · ${s.copper}/${cap.copper} copper`);
+      setText(this.capEl, t('camp.storage', { s: Math.floor(s.scrap), sc: cap.scrap, c: s.copper, cc: cap.copper }));
     }
   }
 }

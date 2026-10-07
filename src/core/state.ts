@@ -87,7 +87,18 @@ export interface Autopilot {
   relaunch: boolean;
 }
 
+/** A journal line stored as a translation key + params; `text` only in pre-i18n saves. */
+export interface JournalEntry {
+  t: number;
+  k?: string;
+  p?: Record<string, string | number>;
+  text?: string;
+}
+
 export interface Settings {
+  /** '' = follow the browser language. */
+  lang: string;
+  introSeen: boolean;
   sfx: boolean;
   volume: number;
   reducedMotion: boolean;
@@ -111,7 +122,7 @@ export interface GameState {
   combos: string[];
   lore: number;
   seenEnemies: string[];
-  journal: { t: number; text: string }[];
+  journal: JournalEntry[];
   lastReport: ExpeditionReport | null;
   stats: Record<StatKey, number>;
   rngState: number;
@@ -158,19 +169,20 @@ export function createInitialState(now: number, seed = (now ^ 0x9e3779b9) | 0): 
     combos: [],
     lore: 0,
     seenEnemies: [],
-    journal: [{ t: now, text: 'Unit 7 wakes at the mouth of the shaft. Its engineer — you — gets to work.' }],
+    journal: [{ t: now, k: 'j.wake' }],
     lastReport: null,
     stats: emptyStats(),
     rngState: seed,
     nextUid: 3,
-    settings: { sfx: true, volume: 0.6, reducedMotion: false },
+    settings: { lang: '', introSeen: false, sfx: true, volume: 0.6, reducedMotion: false },
     timestamps: { created: now, lastSaved: now, lastTick: now },
   };
 }
 
 export const newUid = (s: GameState): string => `m${s.nextUid++}`;
 
-export function journal(s: GameState, t: number, text: string): void {
-  s.journal.push({ t, text });
+/** Params whose value starts with '@' are translation keys resolved at display time. */
+export function journal(s: GameState, t: number, k: string, p?: Record<string, string | number>): void {
+  s.journal.push(p ? { t, k, p } : { t, k });
   if (s.journal.length > 80) s.journal.splice(0, s.journal.length - 80);
 }
