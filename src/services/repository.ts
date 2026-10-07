@@ -1,19 +1,16 @@
-import { ACHIEVEMENTS } from '../data/achievements';
-import { BOSSES } from '../data/bosses';
-import { ENEMIES } from '../data/enemies';
-import { ITEMS } from '../data/items';
-import { EXPEDITIONS } from '../data/probes';
-import { UPGRADES } from '../data/upgrades';
-import { ZONES } from '../data/zones';
+import { BUILDINGS } from '../data/buildings';
+import { BOSSES, ENEMIES } from '../data/enemies';
+import { EVENTS } from '../data/events';
+import { MODULES } from '../data/modules';
+import { STRATA } from '../data/strata';
 
 export interface ContentBundle {
+  modules: typeof MODULES;
   enemies: typeof ENEMIES;
   bosses: typeof BOSSES;
-  items: typeof ITEMS;
-  upgrades: typeof UPGRADES;
-  zones: typeof ZONES;
-  expeditions: typeof EXPEDITIONS;
-  achievements: typeof ACHIEVEMENTS;
+  strata: typeof STRATA;
+  buildings: typeof BUILDINGS;
+  events: typeof EVENTS;
 }
 
 /** Where content definitions come from. Local = bundled; Remote = live-ops / seasonal content. */
@@ -23,7 +20,7 @@ export interface GameRepository {
 
 export class LocalGameRepository implements GameRepository {
   async loadContent(): Promise<ContentBundle> {
-    return { enemies: ENEMIES, bosses: BOSSES, items: ITEMS, upgrades: UPGRADES, zones: ZONES, expeditions: EXPEDITIONS, achievements: ACHIEVEMENTS };
+    return { modules: MODULES, enemies: ENEMIES, bosses: BOSSES, strata: STRATA, buildings: BUILDINGS, events: EVENTS };
   }
 }
 

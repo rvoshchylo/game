@@ -1,240 +1,137 @@
-// Content definitions. Adding an enemy / boss / item / upgrade = adding a data object,
-// never editing a system.
+// Content definitions. New modules, enemies, buildings, events = new data, not new systems.
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'relic';
-export type ItemSlotKind = 'core' | 'module' | 'utility';
-export type SlotId = 'core' | 'module1' | 'module2' | 'utility' | 'utility2';
+export type ShapeId = '1' | '2' | 'L' | '2x2';
+export type ModuleKind = 'weapon' | 'power' | 'cooling' | 'armor' | 'shield' | 'repair' | 'cargo' | 'utility';
 
-/** Every number a build can change. Base values live in core/stats.ts. */
-export type StatKey =
-  | 'strikeMul'
-  | 'autoMul'
-  | 'fractureMul'
-  | 'fractureFreqMul'
-  | 'fractureShards'
-  | 'scrapMul'
-  | 'integrityMul'
-  | 'regenPct'
-  | 'strikeIntegrityCost'
-  | 'governorChance'
-  | 'heatFromAuto'
-  | 'signalMul'
-  | 'rareMul'
-  | 'probeSlots'
-  | 'killsPerDepthDelta'
-  | 'ventHeal'
-  | 'ventDurationAdd'
-  | 'tollHeat'
-  | 'enemyHpMul'
-  | 'echoMul'
-  | 'probeTimeMul';
-
-export interface Effect {
-  stat: StatKey;
-  op: 'add' | 'mul';
-  value: number;
-  /** Rarity scales only the beneficial side of an effect. */
-  scales?: boolean;
+export interface Cost {
+  scrap?: number;
+  copper?: number;
+  cores?: number;
 }
 
-/** Metrics are named numbers derived from state; unlocks and achievements are conditions on them. */
-export type MetricKey =
-  | 'maxDepth'
-  | 'bestDepth'
-  | 'totalScrap'
-  | 'fracturesHit'
-  | 'retreats'
-  | 'itemsFound'
-  | 'ventsUsed'
-  | 'probesSent'
-  | 'wardens'
-  | 'collapses'
-  | 'logsFound'
-  | 'kills'
-  | 'shardsEarned'
-  | 'countersTolled'
-  | 'signalsTapped'
-  | 'itemsForged';
-
-export interface Condition {
-  metric: MetricKey;
-  gte: number;
-}
-
-export interface EnemyVisual {
-  shape: 'mite' | 'crawler' | 'wisp' | 'golem' | 'worm' | 'bell';
-  color: number;
-  /** On-screen size in logical px. */
-  size: number;
-}
-
-export interface EnemyDefinition {
+export interface ModuleDef {
   id: string;
   name: string;
-  hpMul: number;
-  atkMul: number;
-  /** Seconds between attacks. */
-  attackInterval: number;
-  scrapMul: number;
-  /** Seconds between fractures. */
-  fractureInterval: number;
-  /** Seconds a fracture stays open. */
-  fractureLifetime: number;
-  minDepth: number;
-  weight: number;
-  rare?: { fleeAfter: number; shards: number; logChance: number };
-  visual: EnemyVisual;
-}
-
-export type BossRuleKind = 'autoMul' | 'strikeMul' | 'fractureMul' | 'tollInterval';
-export interface BossRule {
-  kind: BossRuleKind;
-  value: number;
-}
-export interface BossPhase {
-  /** Phase is active while hp ratio is at or below this value. */
-  below: number;
-  name: string;
+  kind: ModuleKind;
+  shape: ShapeId;
+  /** +produces / −consumes power. */
+  power: number;
+  /** Frame in the Kenney 1-Bit sheet. */
+  icon: number;
+  color: string;
   description: string;
-  /** Vent suppresses phases marked as shells. */
-  shell?: boolean;
-  rules: BossRule[];
+  /** Short line about what neighbours do to / for it. */
+  synergy?: string;
+  cost: Cost;
+  /** Known from the start (no blueprint needed). */
+  starter?: boolean;
+  // stats (level 1)
+  damage?: number;
+  interval?: number;
+  pierce?: boolean;
+  aoe?: boolean;
+  armor?: number;
+  hp?: number;
+  shield?: number;
+  shieldRegen?: number;
+  repair?: number;
+  cargo?: number;
+  scrapBonus?: number;
+  keepOnBreak?: number;
+  extraChoice?: number;
 }
 
-export interface BossDefinition {
+export interface EnemyDef {
   id: string;
   name: string;
+  /** Frame in the Kenney Tiny Dungeon sheet; -1 = procedural (boss). */
+  frame: number;
+  hp: number;
+  damage: number;
+  interval: number;
+  armor: number;
+}
+
+export interface BossDef extends EnemyDef {
   title: string;
-  hpMul: number;
-  /** Seconds before the shaft gives way and the fight is lost. */
-  timer: number;
   tags: string[];
+  /** True damage to the robot every `tollInterval` seconds (shields absorb it). */
+  tollDamage: number;
   tollInterval: number;
-  /** Fraction of max integrity per toll. */
-  tollDamagePct: number;
-  /** Seconds before a toll during which a tap counters it. */
-  tollWindow: number;
-  fractureInterval: number;
-  fractureLifetime: number;
-  scrapMul: number;
-  shardReward: number;
-  firstKillItem: string;
-  phases: BossPhase[];
-  visual: EnemyVisual;
+  /** Below this HP ratio the boss gains `phase2Armor`. */
+  phase2At: number;
+  phase2Armor: number;
+  profile: string[];
 }
 
-export interface ItemDefinition {
+export type NodeType = 'fight' | 'elite' | 'cache' | 'rest' | 'event' | 'boss';
+
+export interface StratumDef {
   id: string;
   name: string;
-  slot: ItemSlotKind;
-  /** Short playstyle line. */
-  description: string;
-  effects: Effect[];
-  /** Unique items never come from forge/drops. */
-  unique?: boolean;
-  archetype: string;
-}
-
-export type UpgradeId = 'servo' | 'motor' | 'plating' | 'exchanger' | 'hopper' | 'hull';
-
-export interface UpgradeDefinition {
-  id: UpgradeId;
-  name: string;
-  description: string;
-  baseCost: number;
-  growth: number;
-  max?: number;
-  /** UI flag that reveals the upgrade. null = visible from the start. */
-  flag: string | null;
-}
-
-export interface SkillDefinition {
-  id: string;
-  name: string;
-  heatCost: number;
-  baseDuration: number;
-  damageMul: number;
-  fractureRateMul: number;
-}
-
-export interface ZoneDefinition {
-  id: string;
-  name: string;
-  fromDepth: number;
-  palette: { bg: number; rock: number; rockLight: number; accent: number };
+  layers: number;
   enemies: string[];
+  elites: string[];
   bossId: string;
-  bossEvery: number;
+  nodeWeights: Record<Exclude<NodeType, 'boss'>, number>;
+  palette: { bg: number; rock: number; rockLight: number; accent: number };
 }
 
-export interface ExpeditionDefinition {
-  id: string;
-  name: string;
-  description: string;
-  /** Seconds. */
-  duration: number;
-  risk: number;
-  costMul: number;
-  unlock: Condition | { flag: string };
-  rewards: {
-    scrapKills: number;
-    shards: number;
-    itemChance: number;
-    minRarity: Rarity;
-    logChance: number;
-  };
-}
-
-export interface StanceDefinition {
-  id: string;
-  name: string;
-  riskMul: number;
-  rewardMul: number;
-}
-
-export interface UnlockRule {
-  flag: string;
-  when: Condition[];
-  /** Shown as a toast when the system reveals itself. */
-  message: string;
-  /** Hint shown on the locked "faint signal" placeholder. */
-  hint?: string;
-}
-
-export interface AchievementDefinition {
-  id: string;
-  name: string;
-  description: string;
-  metric: MetricKey;
-  threshold: number;
-  rewardShards: number;
-}
-
-export interface MemoryDefinition {
-  id: string;
-  name: string;
-  cost: number;
-  description: string;
-  effects: Effect[];
-  /** Behaviour switches read by systems. */
-  grants: string[];
-}
-
-export interface DoctrineDefinition {
-  id: string;
-  name: string;
-  description: string;
-  effects: Effect[];
-}
-
-export interface LogDefinition {
-  id: string;
-  /** Found on reaching this depth; undefined = only from probes/rare events. */
-  depth?: number;
+export interface BuildingLevel {
+  cost: Cost;
+  /** What this level changes, shown to the player. */
   text: string;
 }
 
-export interface SignalOutcome {
-  id: 'cache' | 'vein' | 'ghost' | 'module';
-  weight: number;
+export interface BuildingDef {
+  id: string;
+  name: string;
+  icon: number;
+  description: string;
+  /** Unlock flag that reveals the construction site; null = available from start. */
+  flag: string | null;
+  levels: BuildingLevel[];
+}
+
+export type EventEffect =
+  | { kind: 'crate'; scrap: number; copper: number }
+  | { kind: 'damage'; pct: number }
+  | { kind: 'heal'; pct: number }
+  | { kind: 'blueprint' }
+  | { kind: 'lore' }
+  | { kind: 'nothing' };
+
+export interface EventOption {
+  label: string;
+  chance: number;
+  success: EventEffect[];
+  fail: EventEffect[];
+  successText: string;
+  failText: string;
+}
+
+export interface EventDef {
+  id: string;
+  text: string;
+  options: EventOption[];
+  /** Option index autopilot takes (the safe one). */
+  safe: number;
+}
+
+export type MetricKey =
+  | 'expeditions'
+  | 'breakdowns'
+  | 'fightsWon'
+  | 'elitesWon'
+  | 'bossesWon'
+  | 'modulesCrafted'
+  | 'merges'
+  | 'deepestLayer'
+  | 'cratesLost';
+
+export interface UnlockRule {
+  flag: string;
+  metric: MetricKey;
+  gte: number;
+  message: string;
 }

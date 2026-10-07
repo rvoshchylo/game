@@ -1,38 +1,33 @@
-import type { ItemInstance, ProbeRun } from './state';
+import type { ExpeditionReport, ModuleInst } from './state';
 
 /** Everything presentation layers may react to. Core never imports render/ui/audio. */
 export interface GameEvents {
-  strike: { dmg: number; nx: number; ny: number };
-  fractureHit: { dmg: number; nx: number; ny: number; chain: number; governed: boolean; shards: number };
-  fractureSpawn: { nx: number; ny: number; life: number };
-  fractureExpire: Record<string, never>;
-  autoDamage: { dmg: number };
-  enemySpawn: { defId: string; isBoss: boolean };
-  enemyKilled: { defId: string; isBoss: boolean; scrap: number };
-  enemyFled: { defId: string };
-  enemyAttack: { dmg: number };
-  tollWarn: Record<string, never>;
+  launched: { tier: number };
+  phase: { phase: string };
+  choiceNeeded: Record<string, never>;
+  fightStart: { enemies: { defId: string; elite: boolean; boss: boolean }[] };
+  moduleFire: { uid: string; defId: string; hits: { index: number; dmg: number }[] };
+  enemyAttack: { index: number };
+  robotHit: { dmg: number; absorbed: number };
+  enemyDie: { index: number; defId: string };
   toll: { dmg: number };
-  counterToll: Record<string, never>;
-  bossPhase: { index: number; name: string; description: string };
-  bossDefeated: { bossId: string; firstKill: boolean };
-  bossFailed: { reason: 'timer' | 'integrity' };
-  depthChanged: { depth: number; dir: 1 | -1 };
-  retreat: { depth: number };
-  ventStart: { duration: number };
-  ventEnd: Record<string, never>;
-  heatFull: Record<string, never>;
+  bossPhase: Record<string, never>;
+  fightEnd: { won: boolean };
+  loot: { scrap: number; copper: number; stored: boolean };
+  blueprint: { defId: string };
+  core: Record<string, never>;
+  heal: { amount: number };
+  eventStart: { eventId: string };
+  eventResult: { text: string };
+  breakdown: Record<string, never>;
+  returned: { report: ExpeditionReport };
   unlock: { flag: string; message: string };
-  itemFound: { item: ItemInstance; source: 'drop' | 'forge' | 'boss' | 'probe' | 'signal' };
-  probeDone: { probe: ProbeRun };
-  probeCollected: { probe: ProbeRun };
-  signalSpawn: { nx: number; ny: number };
-  signalExpire: Record<string, never>;
-  signalResult: { text: string };
-  logFound: { id: string };
-  achievement: { id: string; name: string };
-  collapsed: { echoes: number };
-  upgradeBought: { id: string; level: number };
+  combo: { id: string; name: string };
+  lore: { index: number };
+  crafted: { module: ModuleInst };
+  merged: { module: ModuleInst };
+  built: { id: string; level: number };
+  rigChanged: Record<string, never>;
   error: { text: string };
 }
 

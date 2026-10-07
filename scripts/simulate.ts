@@ -1,93 +1,95 @@
 /**
- * Pacing simulation: a scripted "reasonable player" plays the headless engine.
- * Usage: npm run sim -- [minutes=90] [tapsPerSec=2] [accuracy=0.75]
+ * Pacing simulation: a scripted "reasonable engineer" plays the headless engine with autopilot.
+ * Usage: npm run sim -- [hours=4]
  */
-import { GameEngine, TICK } from '../src/core/engine';
+import { buildingVisible, canAfford, mergePartner, nextBuildCost } from '../src/core/camp';
+import { GameEngine } from '../src/core/engine';
+import { canPlace, shapeCells } from '../src/core/grid';
 import { createInitialState } from '../src/core/state';
-import { UPGRADES } from '../src/data/upgrades';
-import { costOf, isMaxed, upgradeVisible } from '../src/core/systems/upgrades';
-import { canChallenge } from '../src/core/systems/progression';
-import { collapseReward } from '../src/core/systems/prestige';
-import { MEMORIES } from '../src/data/memories';
+import { MODULES, moduleById } from '../src/data/modules';
 
-const [minutes = 90, tps = 2, accuracy = 0.75] = process.argv.slice(2).map(Number);
+const hours = Number(process.argv[2] ?? 4);
 const t0 = 1_700_000_000_000;
-const eng = new GameEngine(createInitialState(t0, 12345), t0);
+const eng = new GameEngine(createInitialState(t0, 7), t0);
+eng.interactive = false;
 const s = eng.state;
 const log: string[] = [];
-const fmt = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 let t = 0;
-let tapAcc = 0;
-let lastWardenTry = -999;
-let collapses = 0;
-let lastMax = 0;
-let lastProgressAt = 0;
-const milestones = new Set<number>();
+const fmt = (sec: number) => `${Math.floor(sec / 3600)}h${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}m`;
+eng.bus.on('unlock', (e) => log.push(`${fmt(t)} unlock ${e.flag}`));
+eng.bus.on('built', (e) => log.push(`${fmt(t)} built ${e.id} L${e.level}`));
+eng.bus.on('blueprint', (e) => log.push(`${fmt(t)} blueprint ${e.defId}`));
+eng.bus.on('combo', (e) => log.push(`${fmt(t)} combo ${e.name}`));
+eng.bus.on('returned', (e) => {
+  const r = e.report;
+  if (r.bossDefeated || r.broken) log.push(`${fmt(t)} exp#${s.stats.expeditions} tier${r.tier} layers=${r.layers} ${r.bossDefeated ? 'WARDEN DOWN' : 'broken'} +${r.scrap}s +${r.copper}c`);
+});
 
-eng.bus.on('unlock', (e) => log.push(`${fmt(t)} UNLOCK ${e.flag}`));
-eng.bus.on('itemFound', (e) => log.push(`${fmt(t)} ITEM ${e.item.defId} (${e.item.rarity}) via ${e.source}`));
-eng.bus.on('bossDefeated', () => log.push(`${fmt(t)} WARDEN DEFEATED at depth ${s.depth - 1}`));
-eng.bus.on('bossFailed', (e) => log.push(`${fmt(t)} warden failed (${e.reason}) servo=${s.upgrades.servo} motor=${s.upgrades.motor} plating=${s.upgrades.plating}`));
-eng.bus.on('collapsed', (e) => log.push(`${fmt(t)} COLLAPSE +${e.echoes} echoes`));
+const WANT = (process.argv[3] ?? 'drill,plate,cargo,battery,shield,cooler,hammer,drone,plate,magnet,saw,beacon,drill,reactor,sensor').split(',');
 
-const auto = s.flags; // keep reference for typing
-void auto;
-
-for (t = 0; t < minutes * 60; t += TICK) {
-  const now = t0 + t * 1000;
-  // Tapping
-  tapAcc += tps * TICK;
-  while (tapAcc >= 1) {
-    tapAcc--;
-    const f = s.enemy?.fracture;
-    if (f && Math.random() < accuracy) eng.dispatch({ type: 'tap', nx: f.nx, ny: f.ny });
-    else eng.dispatch({ type: 'tap', nx: 0.9, ny: 0.9 });
-  }
-  if (s.heat >= 100 && (!s.enemy?.isBoss || s.enemy.bossPhase >= 1)) eng.dispatch({ type: 'vent' });
-  if (s.signal) eng.dispatch({ type: 'tapSignal' });
-
-  // Greedy upgrades: cheapest visible one, preferring offense, plating if retreating.
-  for (let k = 0; k < 5; k++) {
-    const opts = UPGRADES.filter((u) => upgradeVisible(s, u) && !isMaxed(s, u) && u.id !== 'hopper' && u.id !== 'hull');
-    opts.sort((a, b) => costOf(s, a) - costOf(s, b));
-    const pick = opts[0];
-    if (pick && s.scrap >= costOf(s, pick)) eng.dispatch({ type: 'buyUpgrade', id: pick.id });
-    else break;
-  }
-  // Equip anything new (naive)
-  for (const it of s.inventory) {
-    if (it.defId === 'governor_relay' && !s.equipped.module1) eng.dispatch({ type: 'equip', uid: it.uid, slot: 'module1' });
-    if (it.defId === 'clapper_core') eng.dispatch({ type: 'equip', uid: it.uid, slot: 'core' });
-    if (it.defId === 'repair_drone' && !s.equipped.utility) eng.dispatch({ type: 'equip', uid: it.uid, slot: 'utility' });
-  }
-  const equippedUids = new Set(Object.values(s.equipped));
-  const loose = s.inventory.filter((i) => !equippedUids.has(i.uid) && i.defId !== 'piston_bit');
-  if (loose.length > 8) eng.dispatch({ type: 'salvage', uid: loose[0].uid });
-  if (s.flags.includes('forge') && s.shards >= 25) eng.dispatch({ type: 'forge' });
-  if (s.mode === 'hold' && s.rustDebt <= 0 && s.integrity > eng.stats.maxIntegrity * 0.95) eng.dispatch({ type: 'setMode', mode: 'push' });
-  if (canChallenge(eng) && t - lastWardenTry > 120) {
-    lastWardenTry = t;
-    log.push(`${fmt(t)} challenge warden (strike=${eng.stats.strike.toFixed(1)} dps=${eng.stats.autoDps.toFixed(1)} int=${eng.stats.maxIntegrity.toFixed(0)})`);
-    eng.dispatch({ type: 'challengeWarden' });
-  }
-  // Collapse heuristic: when stuck and reward >= 8
-  if (s.maxDepth > lastMax) {
-    lastMax = s.maxDepth;
-    lastProgressAt = t;
-  }
-  if (s.flags.includes('collapse') && collapseReward(eng) >= 5 && t - lastProgressAt > 600) {
-    lastMax = 0;
-    eng.dispatch({ type: 'collapse', doctrineId: 'none' });
-    collapses++;
-    for (const m of MEMORIES) if (['muscle_memory', 'auto_vent', 'governor_instinct'].includes(m.id)) eng.dispatch({ type: 'buyMemory', id: m.id });
-  }
-  if (!milestones.has(s.maxDepth)) {
-    milestones.add(s.maxDepth);
-    log.push(`${fmt(t)} depth ${s.maxDepth}  scrap=${s.scrap.toFixed(0)} shards=${s.shards}`);
-  }
-  eng.tick(TICK, now);
+function tryPlace(uid: string): boolean {
+  const def = moduleById(s.modules.find((m) => m.uid === uid)!.defId);
+  for (let y = 0; y < eng.rig.h; y++)
+    for (let x = 0; x < eng.rig.w; x++)
+      for (let rot = 0; rot < 4; rot++) {
+        if (rot && def.shape === '1') break;
+        if (shapeCells(def.shape, rot) && canPlace(s, uid, { x, y, rot })) return eng.dispatch({ type: 'place', uid, x, y, rot });
+      }
+  return false;
 }
 
+function engineer(): void {
+  if (s.exp) return;
+  for (const id of ['storage', 'dock', 'workshop', 'forge', 'radio']) {
+    const c = nextBuildCost(s, id);
+    if (c && buildingVisible(s, id) && canAfford(s, c)) eng.dispatch({ type: 'build', id });
+  }
+  for (const m of [...s.modules]) if (mergePartner(s, m.uid)) eng.dispatch({ type: 'merge', uid: m.uid });
+  for (const m of s.modules) if (!m.pos) tryPlace(m.uid);
+  const free = eng.rig.w * eng.rig.h - eng.rig.placed.reduce((n, p) => n + p.cells.length, 0);
+  if (free > 0 && WANT.some((id) => s.blueprints.includes(id) && !s.modules.some((m) => m.defId === id))) {
+    const have = new Map<string, number>();
+    for (const m of s.modules) have.set(m.defId, (have.get(m.defId) ?? 0) + 1);
+    const counts = new Map<string, number>();
+    for (const id of WANT) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+      if ((have.get(id) ?? 0) >= counts.get(id)!) continue;
+      if (!s.blueprints.includes(id) || !canAfford(s, moduleById(id).cost)) continue;
+      if (eng.dispatch({ type: 'craft', defId: id })) tryPlace(s.modules[s.modules.length - 1].uid);
+      break;
+    }
+  } else {
+    // full grid: craft twins of placed modules for merging
+    const forge = s.buildings.forge > 0;
+    if (forge)
+      for (const p of eng.rig.placed)
+        if (p.inst.level < 4 && canAfford(s, moduleById(p.def.id).cost) && s.scrap > 100 && s.modules.filter((m) => !m.pos && m.defId === p.def.id).length < 2) {
+          eng.dispatch({ type: 'craft', defId: p.def.id });
+          break;
+        }
+  }
+  for (const m of s.modules) if (!m.pos && mergePartner(s, m.uid) === null && s.modules.filter((x) => !x.pos).length > 6) eng.dispatch({ type: 'salvage', uid: m.uid });
+  if (s.buildings.radio >= 1 && s.autopilot.priority[1] !== 'elite') eng.dispatch({ type: 'setAutopilot', patch: { priority: ['cache', 'elite', 'fight', 'rest', 'event'] } });
+  if (s.buildings.radio >= 2 && !s.autopilot.avoidEliteHpPct) eng.dispatch({ type: 'setAutopilot', patch: { avoidEliteHpPct: 60 } });
+  if (s.robot.hp >= eng.rig.maxHp * 0.95) {
+    const last = s.lastReport;
+    const tier = last?.broken && last.tier > 1 ? last.tier - 1 : s.tierUnlocked;
+    eng.dispatch({ type: 'launch', tier });
+  }
+}
+
+const step = 0.25;
+const marks = [0.25, 0.5, 1, 2, 4, 8, 16, 24];
+for (t = 0; t < hours * 3600; t += step) {
+  if (Math.round(t * 4) % 20 === 0) engineer();
+  eng.tick(step, t0 + t * 1000);
+  const h = t / 3600;
+  if (marks.length && h >= marks[0]) {
+    marks.shift();
+    log.push(
+      `── ${fmt(t)}: exp=${s.stats.expeditions} tier=${s.tierUnlocked} scrap=${Math.round(s.scrap)} cu=${s.copper} cores=${s.cores} grid=${eng.rig.w}x${eng.rig.h} dps=${eng.rig.dps.toFixed(1)} hp=${eng.rig.maxHp.toFixed(0)} armor=${eng.rig.armor.toFixed(1)} shield=${eng.rig.shieldMax.toFixed(0)} cargo=${eng.rig.cargo} mods=${eng.rig.placed.map((p) => p.def.id + p.inst.level).join(',')}`,
+    );
+  }
+}
 console.log(log.join('\n'));
-console.log(`\nEnd ${minutes}min: depth=${s.depth} max=${s.maxDepth} best=${s.bestDepth} collapses=${collapses} echoes=${s.echoes}`);
-console.log(`upgrades=${JSON.stringify(s.upgrades)} retreats=${s.stats.retreats} fractures=${s.stats.fracturesHit}`);
+void MODULES;

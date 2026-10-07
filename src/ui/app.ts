@@ -1,123 +1,109 @@
-import { canChallenge } from '../core/systems/progression';
-import { enemyBoss } from '../core/systems/combat';
-import type { OfflineReport } from '../core/systems/offline';
-import { itemById } from '../data/items';
-import { logById } from '../data/logs';
-import { TABS } from '../data/unlocks';
-import { zoneForDepth } from '../data/zones';
+import type { OfflineReport } from '../core/engine';
+import { autopilotChoice, canLaunch, nodeLabel, storageCap } from '../core/expedition';
+import { bossById } from '../data/enemies';
+import { eventById } from '../data/events';
+import { moduleById } from '../data/modules';
+import { stratumById } from '../data/strata';
 import { formatDuration, formatNumber } from '../utils/format';
 import type { UiContext } from './context';
 import { h, setDisabled, setText, setWidth, toggleClass, type Panel } from './dom';
-import { CodexPanel } from './panels/codex';
-import { CollapsePanel } from './panels/collapse';
-import { DrillPanel } from './panels/drill';
-import { ProbesPanel } from './panels/probes';
+import { AutopilotPanel } from './panels/autopilot';
+import { CampPanel } from './panels/camp';
+import { JournalPanel } from './panels/journal';
 import { RigPanel } from './panels/rig';
+import { NODE_ICON, RES_ICON, sprite } from './sprites';
 
-/** Builds the HTML layer around the Phaser canvas and keeps it in sync with the engine. */
+const TABS: { id: string; label: string; flag: string | null }[] = [
+  { id: 'rig', label: 'RIG', flag: null },
+  { id: 'camp', label: 'CAMP', flag: null },
+  { id: 'autopilot', label: 'AUTOPILOT', flag: 'radio' },
+  { id: 'journal', label: 'JOURNAL', flag: null },
+];
+
+const NODE_HINT: Record<string, string> = {
+  fight: 'scrap, maybe copper',
+  elite: 'tough — carries a blueprint',
+  cache: 'loot without a fight',
+  rest: 'repair 35% hull',
+  event: 'a choice, a risk',
+  boss: 'the Warden',
+};
+
+/** HTML layer around the Phaser canvas. Rebuilds pieces only when their signature changes. */
 export class App {
   readonly stage: HTMLElement;
   private panels: Record<string, Panel>;
-  private active = 'drill';
+  private active = 'rig';
   private panelSig = '';
   private panelHost: HTMLElement;
   private tabBar: HTMLElement;
   private tabSig = '';
-  private seenTabs = new Set<string>(['drill']);
+  private seenTabs = new Set(['rig']);
+  private ops: HTMLElement;
+  private opsSig = '';
   private el: Record<string, HTMLElement> = {};
+  private live: { countdown?: HTMLElement; launch?: HTMLButtonElement; launchWhy?: HTMLElement } = {};
 
   constructor(
     root: HTMLElement,
     private ui: UiContext,
   ) {
-    this.panels = {
-      drill: new DrillPanel(ui),
-      rig: new RigPanel(ui),
-      probes: new ProbesPanel(ui),
-      collapse: new CollapsePanel(ui),
-      codex: new CodexPanel(ui),
-    };
+    this.panels = { rig: new RigPanel(ui), camp: new CampPanel(ui), autopilot: new AutopilotPanel(ui), journal: new JournalPanel(ui) };
     const e = this.el;
     const b = (k: string, el: HTMLElement) => ((e[k] = el), el);
-
     this.stage = h('div', { id: 'stage' });
     this.panelHost = h('main', { class: 'panel' });
     this.tabBar = h('nav', { class: 'tabs', role: 'tablist' });
+    this.ops = h('div', { class: 'ops' });
 
+    const res = (key: keyof typeof RES_ICON, title: string) =>
+      b(`${key}Box`, h('div', { class: `cur ${key}`, title }, sprite('onebit', RES_ICON[key], 1), b(key, h('b', {}))));
     const hud = h(
       'header',
       { class: 'hud' },
-      h('div', { class: 'depth' }, h('span', { class: 'label' }, 'DEPTH'), b('depth', h('b', {})), b('zone', h('span', { class: 'zone' }))),
-      h('div', { class: 'cur scrap', title: 'Scrap' }, h('i', {}, '⚙'), b('scrap', h('b', {}))),
-      b('shardsBox', h('div', { class: 'cur shards hidden', title: 'Shards' }, h('i', {}, '◆'), b('shards', h('b', {})))),
-      b('echoBox', h('div', { class: 'cur echoes hidden', title: 'Echoes' }, h('i', {}, '✦'), b('echoes', h('b', {})))),
+      h('div', { class: 'brand' }, 'RUSTHEART'),
+      h('div', { class: 'grow' }),
+      res('scrap', 'Scrap'),
+      res('copper', 'Copper'),
+      res('cores', 'Warden cores'),
       h('button', { class: 'btn ghost icon', 'aria-label': 'Settings', onclick: () => this.openSettings() }, '⚙︎'),
     );
-
     const bars = h(
       'div',
       { class: 'bars' },
-      h(
-        'div',
-        { class: 'meter integrity' },
-        b('intFill', h('div', { class: 'fill' })),
-        b('intText', h('span', { class: 'meter-text' })),
-      ),
-      b(
-        'heatRow',
-        h(
-          'div',
-          { class: 'heat-row hidden' },
-          h('div', { class: 'meter heat' }, b('heatFill', h('div', { class: 'fill' })), b('heatText', h('span', { class: 'meter-text' }))),
-          b('vent', h('button', { class: 'btn vent', onclick: () => this.ui.engine.dispatch({ type: 'vent' }) }, 'VENT')),
-        ),
-      ),
+      h('div', { class: 'meter hull' }, b('hullFill', h('div', { class: 'fill' })), b('hullText', h('span', { class: 'meter-text' }))),
+      b('shieldRow', h('div', { class: 'meter thin shield' }, b('shieldFill', h('div', { class: 'fill' })))),
+      b('crates', h('div', { class: 'crates' })),
     );
-
-    const controls = h(
-      'div',
-      { class: 'controls' },
-      b('ascend', h('button', { class: 'btn ghost hidden', 'aria-label': 'Ascend one depth', onclick: () => this.ui.engine.dispatch({ type: 'ascend' }) }, '▲')),
-      b('mode', h('button', { class: 'btn mode hidden', onclick: () => this.toggleMode() })),
-      h('div', { class: 'kills grow' }, h('div', { class: 'meter thin' }, b('killFill', h('div', { class: 'fill' }))), b('killText', h('span', { class: 'sub' }))),
-      b('challenge', h('button', { class: 'btn danger hidden', onclick: () => this.ui.engine.dispatch({ type: 'challengeWarden' }) }, 'CHALLENGE WARDEN')),
-    );
-
-    const hint = b('hint', h('div', { class: 'stage-hint' }, 'Tap the glowing cracks!'));
-    const status = b('status', h('div', { class: 'stage-status' }));
-
     root.append(
       h(
         'div',
         { class: 'layout' },
         hud,
-        h('section', { class: 'play' }, h('div', { class: 'stage-wrap' }, this.stage, hint, status), bars, controls),
+        h('section', { class: 'play' }, h('div', { class: 'stage-wrap' }, this.stage), bars, this.ops),
         h('section', { class: 'side' }, this.tabBar, this.panelHost),
       ),
     );
     this.bindEvents();
   }
 
-  private toggleMode(): void {
-    const s = this.ui.engine.state;
-    this.ui.engine.dispatch({ type: 'setMode', mode: s.mode === 'push' ? 'hold' : 'push' });
-  }
-
   private bindEvents(): void {
     const b = this.ui.engine.bus;
     const t = this.ui.toasts;
-    b.on('unlock', (e) => t.show(e.message, 'unlock', 5000));
-    b.on('itemFound', (e) => t.show(`Found ${itemById(e.item.defId).name} (${e.item.rarity})`, 'loot'));
-    b.on('logFound', (e) => t.show(`Echo Log: “${logById(e.id).text}”`, 'lore', 7000));
-    b.on('achievement', (e) => t.show(`Achievement: ${e.name}`, 'unlock'));
-    b.on('probeDone', () => t.show(`A probe has returned. Collect it in PROBES.`, 'info'));
-    b.on('signalResult', (e) => t.show(e.text, 'lore'));
+    b.on('unlock', (e) => t.show(e.message, 'unlock', 6000));
+    b.on('blueprint', (e) => t.show(`Blueprint found: ${moduleById(e.defId).name}. It will be in the Workshop when the robot is home.`, 'loot', 5000));
+    b.on('combo', (e) => t.show(`Discovery: ${e.name}!`, 'unlock', 5000));
+    b.on('lore', () => t.show('An echo log was recovered. See the Journal.', 'lore'));
     b.on('error', (e) => t.show(e.text, 'danger'));
-    b.on('retreat', () => t.show('Retreat! Rust Debt: −25% damage for 15s. Descent set to HOLD.', 'danger'));
-    b.on('bossDefeated', (e) => t.show(e.firstKill ? 'The Hollow Bell falls silent. Its clapper is yours.' : 'Warden broken.', 'unlock', 5000));
-    b.on('collapsed', (e) => {
-      t.show(`The shaft collapses. +${e.echoes} Echoes. You remember.`, 'unlock', 6000);
-      this.setTab('drill');
+    b.on('eventResult', (e) => t.show(e.text, 'lore'));
+    b.on('returned', (e) => {
+      const r = e.report;
+      t.show(
+        r.bossDefeated ? `The Warden is down! Tier ${this.ui.engine.state.tierUnlocked} is open. +${r.scrap} scrap, +${r.copper} copper, +${r.cores} core.` : `${r.broken ? 'Back, battered' : 'Back at camp'}: +${r.scrap} scrap, +${r.copper} copper${r.blueprints.length ? `, ${r.blueprints.length} blueprint(s)` : ''}.`,
+        r.broken ? 'danger' : 'loot',
+        5000,
+      );
+      this.ui.actions.saveNow();
     });
   }
 
@@ -130,41 +116,141 @@ export class App {
 
   private renderTabs(): void {
     const s = this.ui.engine.state;
-    const unlocked = TABS.filter((tb) => tb.flag === null || s.flags.includes(tb.flag));
-    const nextLocked = TABS.find((tb) => tb.flag !== null && !s.flags.includes(tb.flag));
-    const sig = unlocked.map((x) => x.id).join(',') + '|' + this.active + '|' + [...this.seenTabs].join(',');
+    const tabs = TABS.filter((tb) => tb.flag === null || s.flags.includes(tb.flag));
+    const sig = tabs.map((x) => x.id).join(',') + this.active + [...this.seenTabs].join(',');
     if (sig === this.tabSig) return;
     this.tabSig = sig;
-    const btns = unlocked.map((tb) =>
-      h(
-        'button',
-        {
-          class: `tab ${tb.id === this.active ? 'on' : ''} ${this.seenTabs.has(tb.id) ? '' : 'new'}`,
-          role: 'tab',
-          onclick: () => {
-            this.ui.sfx.click();
-            this.setTab(tb.id);
-          },
-        },
-        tb.label,
+    this.tabBar.replaceChildren(
+      ...tabs.map((tb) =>
+        h('button', { class: `tab ${tb.id === this.active ? 'on' : ''} ${this.seenTabs.has(tb.id) ? '' : 'new'}`, role: 'tab', onclick: () => (this.ui.sfx.click(), this.setTab(tb.id)) }, tb.label),
       ),
     );
-    if (nextLocked) {
-      btns.push(
-        h('button', { class: 'tab locked', onclick: () => this.ui.toasts.show('A faint signal… something else is down here.', 'info') }, '▒▒▒'),
-      );
+  }
+
+  // ── Expedition controls (under the stage) ─────────────────────────────────
+
+  private opsSignature(): string {
+    const s = this.ui.engine.state;
+    const x = s.exp;
+    if (!x) return `camp|${s.tierUnlocked}|${s.selectedTier}|${s.lastReport?.endedAt}|${s.stats.deepestLayer > 4}`;
+    return `exp|${x.phase}|${x.layer}|${x.path.join(',')}|${x.map[x.layer]?.length}`;
+  }
+
+  private buildOps(): void {
+    const eng = this.ui.engine;
+    const s = eng.state;
+    const x = s.exp;
+    this.live = {};
+    const parts: HTMLElement[] = [];
+    if (!x) {
+      // At camp: launch
+      const tiers = h('div', { class: 'segmented tiers' });
+      for (let t = 1; t <= s.tierUnlocked; t++)
+        tiers.append(h('button', { class: `seg ${t === s.selectedTier ? 'on' : ''}`, onclick: () => ((s.selectedTier = t), (this.opsSig = '')) }, `Tier ${t}`));
+      this.live.launch = h('button', { class: 'btn launch', onclick: () => eng.dispatch({ type: 'launch', tier: s.selectedTier }) }, '▼ Send the robot down');
+      this.live.launchWhy = h('div', { class: 'hint' });
+      parts.push(h('div', { class: 'card' }, h('div', { class: 'row' }, s.tierUnlocked > 1 ? tiers : h('div', { class: 'card-title grow' }, stratumById('rust').name), this.live.launch), this.live.launchWhy));
+      if (s.stats.deepestLayer > 4) {
+        const boss = bossById(stratumById('rust').bossId);
+        parts.push(h('div', { class: 'card warden' }, h('div', { class: 'card-title' }, `⚠ ${boss.name} waits at layer 8`), h('ul', { class: 'phases' }, ...boss.profile.map((p) => h('li', {}, p)))));
+      }
+      const r = s.lastReport;
+      if (r)
+        parts.push(
+          h(
+            'div',
+            { class: 'card report' },
+            h('div', { class: 'card-title' }, `Last expedition${r.tier > 1 ? ` (tier ${r.tier})` : ''}: ${r.bossDefeated ? 'Warden defeated' : r.broken ? 'broke down' : 'returned'} on layer ${r.layers}`),
+            h(
+              'div',
+              { class: 'desc' },
+              `+${r.scrap} scrap · +${r.copper} copper${r.cores ? ` · +${r.cores} core` : ''}${r.blueprints.length ? ` · blueprints: ${r.blueprints.map((b) => moduleById(b).name).join(', ')}` : ''}${r.cratesLost ? ` · ${r.cratesLost} crate(s) lost` : ''}${r.overflow ? ` · ${r.overflow} left outside (storage full)` : ''}`,
+            ),
+          ),
+        );
+    } else {
+      // Map strip
+      const map = h('div', { class: 'map' });
+      x.map.forEach((layer, li) => {
+        const col = h('div', { class: `map-col ${li === x.layer ? 'here' : li < x.layer ? 'past' : ''}` });
+        layer.forEach((n, ni) => col.append(h('span', { class: `map-node ${x.path[li] === ni ? 'taken' : ''}`, title: nodeLabel(n.type) }, sprite('onebit', NODE_ICON[n.type], 1))));
+        map.append(col);
+      });
+      parts.push(map);
+
+      if (x.phase === 'choose' && x.map[x.layer].length > 1) {
+        const nodes = x.map[x.layer];
+        const auto = autopilotChoice(eng, nodes);
+        this.live.countdown = h('div', { class: 'hint' });
+        parts.push(
+          h(
+            'div',
+            { class: 'card fork' },
+            h('div', { class: 'card-title' }, `Fork on layer ${x.layer + 1}. Where to?`),
+            h(
+              'div',
+              { class: 'choices' },
+              ...nodes.map((n, i) =>
+                h(
+                  'button',
+                  { class: `choice ${i === auto ? 'auto' : ''}`, onclick: () => eng.dispatch({ type: 'choose', index: i }) },
+                  sprite('onebit', NODE_ICON[n.type], 2),
+                  h('div', {}, h('b', {}, nodeLabel(n.type)), h('div', { class: 'desc' }, NODE_HINT[n.type])),
+                ),
+              ),
+            ),
+            this.live.countdown,
+          ),
+        );
+      } else if (x.phase === 'event') {
+        const node = x.map[x.layer][x.path[x.layer]];
+        const ev = eventById(node.eventId!);
+        this.live.countdown = h('div', { class: 'hint' });
+        parts.push(
+          h(
+            'div',
+            { class: 'card fork' },
+            h('div', { class: 'card-title' }, ev.text),
+            h(
+              'div',
+              { class: 'choices' },
+              ...ev.options.map((o, i) =>
+                h('button', { class: `choice ${i === ev.safe ? 'auto' : ''}`, onclick: () => eng.dispatch({ type: 'eventChoice', index: i }) }, h('div', {}, h('b', {}, o.label), h('div', { class: 'desc' }, o.chance < 1 ? `${Math.round(o.chance * 100)}% chance` : 'safe'))),
+              ),
+            ),
+            this.live.countdown,
+          ),
+        );
+      }
+      if (x.phase !== 'return') parts.push(h('div', { class: 'row end' }, h('button', { class: 'btn ghost', onclick: () => eng.dispatch({ type: 'recall' }) }, '▲ Recall with cargo')));
     }
-    this.tabBar.replaceChildren(...btns);
+    this.ops.replaceChildren(...parts);
+  }
+
+  private updateOps(): void {
+    const eng = this.ui.engine;
+    const s = eng.state;
+    const x = s.exp;
+    if (this.live.countdown && x) {
+      const secs = Math.max(0, Math.ceil(x.waitTimer));
+      setText(this.live.countdown, x.phase === 'event' ? `No answer in ${secs}s → the robot plays it safe.` : `No choice in ${secs}s → autopilot takes the highlighted path.`);
+    }
+    if (this.live.launch) {
+      const why = canLaunch(eng);
+      setDisabled(this.live.launch, !!why);
+      setText(this.live.launchWhy!, why ?? `Hull ${Math.round((s.robot.hp / eng.rig.maxHp) * 100)}% · cargo ${eng.rig.cargo} crates · ${formatNumber(eng.rig.dps)} dmg/s`);
+    }
   }
 
   update(): void {
     const eng = this.ui.engine;
     const s = eng.state;
-    const st = eng.stats;
+    const rig = eng.rig;
     const e = this.el;
 
     this.renderTabs();
-    if (!(this.active in this.panels) || (TABS.find((x) => x.id === this.active)?.flag && !s.flags.includes(TABS.find((x) => x.id === this.active)!.flag!))) this.active = 'drill';
+    const tab = TABS.find((t) => t.id === this.active);
+    if (!tab || (tab.flag && !s.flags.includes(tab.flag))) this.active = 'rig';
     const panel = this.panels[this.active];
     const sig = panel.signature();
     if (sig !== this.panelSig) {
@@ -175,70 +261,51 @@ export class App {
     }
     panel.update();
 
-    // HUD
-    setText(e.depth, String(s.depth));
-    setText(e.zone, zoneForDepth(s.depth).name);
-    setText(e.scrap, formatNumber(s.scrap));
-    toggleClass(e.shardsBox, 'hidden', s.stats.shardsEarned === 0);
-    setText(e.shards, formatNumber(s.shards));
-    toggleClass(e.echoBox, 'hidden', s.stats.collapses === 0 && s.echoes === 0);
-    setText(e.echoes, formatNumber(s.echoes));
-
-    // Integrity / heat
-    setWidth(e.intFill, s.integrity / st.maxIntegrity);
-    toggleClass(e.intFill.parentElement!, 'low', s.integrity / st.maxIntegrity < 0.3);
-    setText(e.intText, `INTEGRITY ${formatNumber(Math.max(0, s.integrity))}/${formatNumber(st.maxIntegrity)}${s.rustDebt > 0 ? ` · RUST DEBT ${Math.ceil(s.rustDebt)}s` : ''}`);
-    const heatOn = s.flags.includes('heat');
-    toggleClass(e.heatRow, 'hidden', !heatOn);
-    if (heatOn) {
-      const venting = s.ventTime > 0;
-      setWidth(e.heatFill, venting ? s.ventTime / st.ventDuration : s.heat / 100);
-      toggleClass(e.heatFill.parentElement!, 'venting', venting);
-      setText(e.heatText, venting ? `VENTING ${s.ventTime.toFixed(1)}s · ×2 DAMAGE` : `HEAT ${Math.floor(s.heat)}${s.chain > 1 ? ` · CHAIN ×${s.chain}` : ''}${s.ghostFractures ? ` · GHOST ${s.ghostFractures}` : ''}`);
-      const ready = s.heat >= 100 && !venting;
-      setDisabled(e.vent as HTMLButtonElement, !ready);
-      toggleClass(e.vent, 'ready', ready);
-      setText(e.vent, st.grants.has('autoVent') ? 'AUTO' : 'VENT');
+    const osig = this.opsSignature();
+    if (osig !== this.opsSig) {
+      this.opsSig = osig;
+      this.buildOps();
     }
+    this.updateOps();
 
-    // Descent controls
-    const pushOn = s.flags.includes('push');
-    toggleClass(e.mode, 'hidden', !pushOn);
-    toggleClass(e.ascend, 'hidden', !pushOn);
-    setDisabled(e.ascend as HTMLButtonElement, s.depth <= 1);
-    setText(e.mode, s.mode === 'push' ? '▼ PUSH' : '■ HOLD');
-    toggleClass(e.mode, 'hold', s.mode === 'hold');
-    const need = st.killsPerDepth;
-    const boss = s.enemy && enemyBoss(s.enemy);
-    setWidth(e.killFill, boss ? s.enemy!.hp / s.enemy!.maxHp : Math.min(1, s.kills / need));
-    setText(
-      e.killText,
-      boss
-        ? `WARDEN · ${formatNumber(s.enemy!.hp)} HP`
-        : `${Math.min(s.kills, need)}/${need} to descend${s.mode === 'hold' && s.kills >= need ? ' · holding' : ''}${s.pushReflexTimer > 0 ? ` · push in ${Math.ceil(s.pushReflexTimer)}s` : ''}`,
-    );
-    const challenge = canChallenge(eng);
-    toggleClass(e.challenge, 'hidden', !challenge);
+    // HUD
+    const cap = storageCap(eng);
+    setText(e.scrap, `${formatNumber(s.scrap)}`);
+    toggleClass(e.scrapBox, 'full', s.scrap >= cap.scrap);
+    setText(e.copper, `${formatNumber(s.copper)}`);
+    toggleClass(e.copperBox, 'hidden', s.stats.copperEarned === 0 && s.copper === 0);
+    toggleClass(e.copperBox, 'full', s.copper >= cap.copper);
+    setText(e.cores, `${s.cores}`);
+    toggleClass(e.coresBox, 'hidden', s.cores === 0 && s.stats.bossesWon === 0);
 
-    toggleClass(e.hint, 'hidden', s.stats.fracturesHit >= 3);
-    const status = s.signal ? 'A strange signal flickers… tap it!' : '';
-    setText(e.status, status);
+    setWidth(e.hullFill, s.robot.hp / rig.maxHp);
+    toggleClass(e.hullFill.parentElement!, 'low', s.robot.hp / rig.maxHp < 0.3);
+    setText(e.hullText, `HULL ${formatNumber(Math.max(0, s.robot.hp))}/${formatNumber(rig.maxHp)}${rig.shieldMax ? ` · SHIELD ${formatNumber(s.robot.shield)}` : ''}${rig.armor ? ` · ARMOR ${formatNumber(rig.armor)}` : ''}`);
+    toggleClass(e.shieldRow, 'hidden', rig.shieldMax <= 0);
+    if (rig.shieldMax > 0) setWidth(e.shieldFill, s.robot.shield / rig.shieldMax);
+
+    const crates = s.exp ? s.exp.crates.length : 0;
+    const csig = `${crates}/${rig.cargo}`;
+    if (e.crates.dataset.sig !== csig) {
+      e.crates.dataset.sig = csig;
+      const icons: HTMLElement[] = [h('span', { class: 'lvl' }, 'CARGO ')];
+      for (let i = 0; i < rig.cargo; i++) icons.push(sprite('onebit', 390, 1, i < crates ? 'crate full' : 'crate'));
+      e.crates.replaceChildren(...icons);
+    }
   }
 
   showOffline(r: OfflineReport): void {
-    const lines: HTMLElement[] = [h('p', {}, `You were gone for ${formatDuration(r.elapsedSec)}.${r.capped ? ` The hopper only held ${formatDuration(r.countedSec)}.` : ''}`)];
+    const lines: HTMLElement[] = [h('p', {}, `You were away for ${formatDuration(r.elapsedSec)}.${r.capped ? ` The robot only remembers the last ${formatDuration(r.countedSec)}.` : ''}`)];
     if (r.clockAnomaly) lines.push(h('p', { class: 'danger-text' }, 'The clock ran backwards. Nothing happened.'));
-    if (r.kills > 0) lines.push(h('p', {}, `The drill destroyed ${formatNumber(r.kills)} things at depth ${r.farmDepth} and hauled `, h('b', {}, `${formatNumber(r.scrap)} scrap`), '.'));
-    else if (!r.clockAnomaly) lines.push(h('p', { class: 'desc' }, 'Without a Drill Motor nothing moved while you were away.'));
-    if (r.depthLost > 0) lines.push(h('p', { class: 'danger-text' }, `It could not hold depth ${r.farmDepth + r.depthLost} alone and fell back ${r.depthLost}.`));
-    if (r.probesReady > 0) lines.push(h('p', {}, `${r.probesReady} probe(s) returned.`));
-    lines.push(h('p', { class: 'desc' }, 'Offline the drill works at half efficiency and never pushes deeper. Shards only come from your hands.'));
-    this.ui.modal.open('While you were away', h('div', {}, ...lines), [h('button', { class: 'btn', onclick: () => this.ui.modal.close() }, 'Back to the dig')]);
+    if (r.expeditions || r.scrap || r.copper)
+      lines.push(h('p', {}, `${r.expeditions} expedition(s) finished: `, h('b', {}, `+${formatNumber(r.scrap)} scrap, +${formatNumber(r.copper)} copper${r.cores ? `, +${r.cores} core` : ''}`), r.breakdowns ? ` (${r.breakdowns} breakdown${r.breakdowns > 1 ? 's' : ''})` : '', '.'));
+    else if (!r.clockAnomaly) lines.push(h('p', { class: 'desc' }, 'The robot waited at camp. With a Radio Tower (level 3) it can relaunch on its own.'));
+    if (r.journal.length) lines.push(h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'From the journal'), ...r.journal.slice(-12).map((j) => h('div', { class: 'log' }, j))));
+    this.ui.modal.open('While you were away', h('div', {}, ...lines), [h('button', { class: 'btn', onclick: () => this.ui.modal.close() }, 'Back to the shaft')]);
   }
 
   private openSettings(): void {
-    const s = this.ui.engine.state;
-    const set = s.settings;
+    const set = this.ui.engine.state.settings;
     const exportArea = h('textarea', { class: 'save-text', readonly: true, rows: 3 }) as HTMLTextAreaElement;
     const importArea = h('textarea', { class: 'save-text', rows: 3, placeholder: 'Paste a save string…' }) as HTMLTextAreaElement;
     const toggle = (label: string, get: () => boolean, put: (v: boolean) => void) => {
@@ -250,11 +317,11 @@ export class App {
     const vol = h('input', { type: 'range', min: 0, max: 1, step: 0.05 }) as HTMLInputElement;
     vol.value = String(set.volume);
     vol.addEventListener('input', () => (set.volume = Number(vol.value)));
-    let resetArmed = false;
+    let armed = false;
     const resetBtn = h('button', { class: 'btn danger' }, 'Hard reset');
     resetBtn.addEventListener('click', () => {
-      if (!resetArmed) {
-        resetArmed = true;
+      if (!armed) {
+        armed = true;
         resetBtn.textContent = 'Tap again to erase everything';
         return;
       }
@@ -265,7 +332,7 @@ export class App {
       { class: 'settings' },
       toggle('Sound effects', () => set.sfx, (v) => (set.sfx = v)),
       h('label', { class: 'setting' }, 'Volume ', vol),
-      toggle('Reduced motion (no shake)', () => set.reducedMotion, (v) => (set.reducedMotion = v)),
+      toggle('Reduced motion (no screen shake)', () => set.reducedMotion, (v) => (set.reducedMotion = v)),
       h('div', { class: 'card-title' }, 'Save'),
       h(
         'div',
@@ -283,7 +350,11 @@ export class App {
       exportArea,
       importArea,
       h('div', { class: 'card-title' }, 'Credits'),
-      h('p', { class: 'desc' }, 'Rustheart — design & code. Fonts: Pixelify Sans (Stefie Justprince) and Silkscreen (Jason Kottke), SIL Open Font License 1.1. All sprites and sounds are procedurally generated.'),
+      h(
+        'p',
+        { class: 'desc' },
+        'Sprites: Kenney (www.kenney.nl) — 1-Bit Pack and Tiny Dungeon, CC0. Fonts: Pixelify Sans (Stefie Justprince) and Silkscreen (Jason Kottke), SIL Open Font License 1.1. Robot, Warden art and all sounds are generated in code.',
+      ),
     );
     this.ui.modal.open('Settings', body, [], () => this.ui.actions.saveNow());
   }

@@ -1,13 +1,15 @@
 import type { EventBus } from './events';
+import type { RigStats } from './grid';
 import type { GameState } from './state';
-import type { Stats } from './stats';
 
 /** What every system receives. Implemented by GameEngine. */
 export interface Ctx {
   s: GameState;
   bus: EventBus;
-  stats: Stats;
+  rig: RigStats;
   /** Wall-clock ms (injected; never read from Date inside core). */
   now: number;
+  /** True when a player is watching and can make choices; false during offline catch-up. */
+  interactive: boolean;
   invalidate(): void;
 }

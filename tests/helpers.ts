@@ -9,9 +9,14 @@ export function makeEngine(mut?: (s: GameState) => void): GameEngine {
   return new GameEngine(s, T0);
 }
 
-export function run(eng: GameEngine, seconds: number, onTick?: () => void): void {
+export function run(eng: GameEngine, seconds: number, each?: () => void): void {
   for (let t = 0; t < seconds; t += TICK) {
-    onTick?.();
+    each?.();
     eng.tick(TICK, eng.now + TICK * 1000);
   }
+}
+
+/** Run until the robot is back at camp (or the time limit). */
+export function runExpedition(eng: GameEngine, limit = 900): void {
+  for (let t = 0; t < limit && eng.state.exp; t += TICK) eng.tick(TICK, eng.now + TICK * 1000);
 }

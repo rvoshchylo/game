@@ -152,21 +152,23 @@ export class Sfx {
 
   bind(): void {
     const b = this.engine.bus;
-    b.on('strike', () => this.strike());
-    b.on('fractureHit', (e) => this.fracture(e.chain));
-    b.on('enemyKilled', (e) => this.kill(e.isBoss));
-    b.on('enemyAttack', () => this.hurt());
-    b.on('ventStart', () => this.vent());
-    b.on('heatFull', () => this.heatFull());
-    b.on('tollWarn', () => this.tollWarn());
+    b.on('moduleFire', (e) => (e.hits.length > 1 || e.defId === 'hammer' ? this.fracture(e.hits.length) : this.strike()));
+    b.on('enemyDie', (e) => this.kill(e.defId === 'hollow_bell'));
+    b.on('robotHit', (e) => e.dmg > 0 && this.hurt());
     b.on('toll', () => this.toll());
-    b.on('counterToll', () => this.counter());
+    b.on('bossPhase', () => this.tollWarn());
+    b.on('breakdown', () => this.retreat());
+    b.on('blueprint', () => this.item(2));
+    b.on('core', () => this.fanfare());
     b.on('unlock', () => this.unlock_());
-    b.on('itemFound', (e) => this.item(['common', 'rare', 'epic', 'relic'].indexOf(e.item.rarity)));
-    b.on('retreat', () => this.retreat());
-    b.on('signalSpawn', () => this.signal());
-    b.on('bossDefeated', () => this.fanfare());
+    b.on('combo', () => this.counter());
+    b.on('built', () => this.item(1));
+    b.on('merged', () => this.item(1));
+    b.on('crafted', () => this.click());
+    b.on('choiceNeeded', () => this.signal());
+    b.on('eventStart', () => this.signal());
+    b.on('returned', () => this.heatFull());
+    b.on('launched', () => this.vent());
     b.on('error', () => this.error());
-    b.on('upgradeBought', () => this.click());
   }
 }

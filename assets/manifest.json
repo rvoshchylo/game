@@ -10,7 +10,7 @@
       "attributionRequired": false,
       "modificationAllowed": true,
       "inUse": true,
-      "usage": "automaton, enemies, boss, fractures, particles"
+      "usage": "robot, Warden (Hollow Bell), rock texture, particles"
     },
     {
       "name": "Synthesized SFX (Rustheart)",
@@ -55,8 +55,11 @@
       "commercialUse": true,
       "attributionRequired": false,
       "modificationAllowed": true,
-      "inUse": false,
-      "usage": "planned: enemy/item sprites, tinted per stratum"
+      "inUse": true,
+      "usage": "module, building, node and resource icons",
+      "licenseFile": "public/assets/kenney/License-1bit-pack.txt",
+      "file": "public/assets/kenney/onebit.png",
+      "mirror": "https://github.com/bill2432/kenney-2d-mirror (sha256 verified against its manifest; archive contains the original Kenney License.txt)"
     },
     {
       "name": "Tiny Dungeon",
@@ -66,8 +69,11 @@
       "commercialUse": true,
       "attributionRequired": false,
       "modificationAllowed": true,
-      "inUse": false,
-      "usage": "planned: alternative enemy sprites"
+      "inUse": true,
+      "usage": "enemy sprites",
+      "licenseFile": "public/assets/kenney/License-tiny-dungeon.txt",
+      "file": "public/assets/kenney/tiny-dungeon.png",
+      "mirror": "https://github.com/bill2432/kenney-2d-mirror (sha256 verified against its manifest; archive contains the original Kenney License.txt)"
     },
     {
       "name": "Particle Pack (80 sprites)",

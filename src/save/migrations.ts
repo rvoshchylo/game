@@ -4,23 +4,13 @@ type AnySave = Record<string, unknown> & { version?: number };
 type Migration = (old: AnySave) => AnySave;
 
 /**
- * migrations[n] upgrades a save from version n to n+1.
- * Rule: never delete a migration; old saves must load forever.
+ * migrations[n] upgrades a save from version n to n+1. Never delete one.
+ * v1/v2 were the clicker prototype; their progress has no meaning in the engineer
+ * design, so they become a fresh v3 save flagged `legacy` (the UI explains why).
  */
 export const migrations: Record<number, Migration> = {
-  // v1 = the first prototype: flat fields, "gold" instead of scrap, no probes/equipment.
-  1: (old) => {
-    const num = (k: string, d = 0) => (typeof old[k] === 'number' ? (old[k] as number) : d);
-    const ups = (old.upgrades ?? {}) as Record<string, number>;
-    const now = num('lastSaved', 0);
-    return {
-      version: 2,
-      player: { depth: num('depth', 1), maxDepth: num('depth', 1), bestDepth: num('depth', 1) },
-      currencies: { scrap: num('gold'), shards: 0, echoes: 0 },
-      progression: { upgrades: { servo: ups.servo ?? 0, motor: ups.motor ?? 0 } },
-      timestamps: { created: now, lastSaved: now, lastTick: now },
-    };
-  },
+  1: () => ({ version: 2 }),
+  2: () => ({ version: 3, legacy: true }),
 };
 
 export class FutureSaveError extends Error {}

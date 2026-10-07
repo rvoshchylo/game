@@ -1,62 +1,90 @@
-import type { MetricKey, Rarity, SlotId, UpgradeId } from '../data/types';
+import type { MetricKey, NodeType } from '../data/types';
 
-export interface FractureState {
-  id: number;
-  nx: number;
-  ny: number;
-  life: number;
-  maxLife: number;
-  /** Remaining life at which the governor strikes it; null = not governed. */
-  govAt: number | null;
+export interface Placement {
+  x: number;
+  y: number;
+  rot: number;
+}
+
+export interface ModuleInst {
+  uid: string;
+  defId: string;
+  level: number;
+  pos: Placement | null;
+}
+
+export interface Crate {
+  scrap: number;
+  copper: number;
 }
 
 export interface EnemyState {
   defId: string;
-  isBoss: boolean;
   hp: number;
   maxHp: number;
-  attackTimer: number;
-  fractureTimer: number;
-  fracture: FractureState | null;
-  age: number;
-  bossPhase: number;
+  armor: number;
+  damage: number;
+  interval: number;
+  timer: number;
+  elite: boolean;
+  boss: boolean;
+}
+
+export interface FightState {
+  enemies: EnemyState[];
+  weaponTimers: Record<string, number>;
   tollTimer: number;
-  tollWarned: boolean;
-  tollCountered: boolean;
-  bossTimer: number;
+  phase2: boolean;
+  elapsed: number;
 }
 
-export interface ItemInstance {
-  uid: string;
-  defId: string;
-  rarity: Rarity;
+export interface MapNode {
+  type: NodeType;
+  eventId?: string;
 }
 
-export interface ProbeOutcome {
-  success: boolean;
-  scrap: number;
-  shards: number;
-  item: { defId: string; rarity: Rarity } | null;
-  logId: string | null;
-}
+export type ExpPhase = 'choose' | 'walk' | 'fight' | 'node' | 'event' | 'return';
 
-export interface ProbeRun {
-  uid: string;
-  destId: string;
-  stanceId: string;
+export interface Expedition {
+  stratumId: string;
+  tier: number;
+  map: MapNode[][];
+  layer: number;
+  path: number[];
+  phase: ExpPhase;
+  /** Seconds left in the current timed phase (walk / node / return). */
+  timer: number;
+  /** Seconds before autopilot decides a fork or event for you. */
+  waitTimer: number;
+  crates: Crate[];
+  blueprints: string[];
+  cores: number;
+  cratesLost: number;
+  fight: FightState | null;
+  broken: boolean;
   startedAt: number;
-  durationMs: number;
-  cost: number;
-  risk: number;
-  /** Rolled at launch: reloading never changes the result. */
-  outcome: ProbeOutcome;
-  notified: boolean;
 }
 
-export interface SignalState {
-  nx: number;
-  ny: number;
-  life: number;
+export interface ExpeditionReport {
+  tier: number;
+  layers: number;
+  scrap: number;
+  copper: number;
+  cores: number;
+  blueprints: string[];
+  broken: boolean;
+  cratesLost: number;
+  overflow: number;
+  bossDefeated: boolean;
+  endedAt: number;
+}
+
+export interface Autopilot {
+  priority: Exclude<NodeType, 'boss'>[];
+  returnHpPct: number;
+  returnWhenFull: boolean;
+  avoidEliteHpPct: number;
+  relaunch: boolean;
 }
 
 export interface Settings {
@@ -65,128 +93,84 @@ export interface Settings {
   reducedMotion: boolean;
 }
 
-export type LifetimeStat = MetricKey | 'clockAnomalies' | 'totalDamage' | 'echoesEarned';
+export type StatKey = MetricKey | 'scrapEarned' | 'copperEarned' | 'clockAnomalies';
 
 export interface GameState {
-  /** Run state */
-  depth: number;
-  maxDepth: number;
-  kills: number;
-  mode: 'push' | 'hold';
   scrap: number;
-  shards: number;
-  integrity: number;
-  heat: number;
-  ventTime: number;
-  rustDebt: number;
-  chain: number;
-  spawnDelay: number;
-  enemy: EnemyState | null;
-  upgrades: Record<UpgradeId, number>;
-  equipped: Record<SlotId, string | null>;
-  inventory: ItemInstance[];
-  probes: ProbeRun[];
-  signal: SignalState | null;
-  nextSignalIn: number;
-  ghostFractures: number;
-  pushReflexTimer: number;
-  runWardens: number;
-  /** Warden depths broken this run — they stay open until Collapse. */
-  clearedWardens: number[];
-  autoDamageAcc: number;
-  autoDamageTimer: number;
-
-  /** Meta state (survives Collapse) */
-  bestDepth: number;
-  echoes: number;
-  memories: string[];
-  doctrine: string;
-  heirloomUid: string | null;
+  copper: number;
+  cores: number;
+  modules: ModuleInst[];
+  blueprints: string[];
+  buildings: Record<string, number>;
+  robot: { hp: number; shield: number; shieldDelay: number };
+  exp: Expedition | null;
+  tierUnlocked: number;
+  selectedTier: number;
+  autopilot: Autopilot;
   flags: string[];
-  logs: string[];
-  codex: string[];
-  achievements: string[];
-  stats: Record<LifetimeStat, number>;
-
-  /** System */
+  combos: string[];
+  lore: number;
+  seenEnemies: string[];
+  journal: { t: number; text: string }[];
+  lastReport: ExpeditionReport | null;
+  stats: Record<StatKey, number>;
   rngState: number;
   nextUid: number;
-  fractureSeq: number;
   settings: Settings;
   timestamps: { created: number; lastSaved: number; lastTick: number };
 }
 
-export const emptyStats = (): Record<LifetimeStat, number> => ({
-  maxDepth: 1,
-  bestDepth: 1,
-  totalScrap: 0,
-  fracturesHit: 0,
-  retreats: 0,
-  itemsFound: 0,
-  ventsUsed: 0,
-  probesSent: 0,
-  wardens: 0,
-  collapses: 0,
-  logsFound: 0,
-  kills: 0,
-  shardsEarned: 0,
-  countersTolled: 0,
-  signalsTapped: 0,
-  itemsForged: 0,
+export const emptyStats = (): Record<StatKey, number> => ({
+  expeditions: 0,
+  breakdowns: 0,
+  fightsWon: 0,
+  elitesWon: 0,
+  bossesWon: 0,
+  modulesCrafted: 0,
+  merges: 0,
+  deepestLayer: 0,
+  cratesLost: 0,
+  scrapEarned: 0,
+  copperEarned: 0,
   clockAnomalies: 0,
-  totalDamage: 0,
-  echoesEarned: 0,
 });
 
-export const STARTER_ITEM_UID = 'i0';
+export const BASE_HP = 40;
+export const BASE_CARGO = 3;
 
 export function createInitialState(now: number, seed = (now ^ 0x9e3779b9) | 0): GameState {
   return {
-    depth: 1,
-    maxDepth: 1,
-    kills: 0,
-    mode: 'push',
-    scrap: 0,
-    shards: 0,
-    integrity: 20,
-    heat: 0,
-    ventTime: 0,
-    rustDebt: 0,
-    chain: 0,
-    spawnDelay: 0,
-    enemy: null,
-    upgrades: { servo: 0, motor: 0, plating: 0, exchanger: 0, hopper: 0, hull: 0 },
-    equipped: { core: STARTER_ITEM_UID, module1: null, module2: null, utility: null, utility2: null },
-    inventory: [{ uid: STARTER_ITEM_UID, defId: 'piston_bit', rarity: 'common' }],
-    probes: [],
-    signal: null,
-    nextSignalIn: 90,
-    ghostFractures: 0,
-    pushReflexTimer: 0,
-    runWardens: 0,
-    clearedWardens: [],
-    autoDamageAcc: 0,
-    autoDamageTimer: 0,
-
-    bestDepth: 1,
-    echoes: 0,
-    memories: [],
-    doctrine: 'none',
-    heirloomUid: null,
+    scrap: 20,
+    copper: 0,
+    cores: 0,
+    modules: [
+      { uid: 'm1', defId: 'drill', level: 1, pos: { x: 0, y: 1, rot: 0 } },
+      { uid: 'm2', defId: 'battery', level: 1, pos: { x: 2, y: 1, rot: 0 } },
+    ],
+    blueprints: ['drill', 'battery', 'plate', 'cargo'],
+    buildings: { workshop: 1, storage: 0, dock: 0, radio: 0, forge: 0 },
+    robot: { hp: BASE_HP, shield: 0, shieldDelay: 0 },
+    exp: null,
+    tierUnlocked: 1,
+    selectedTier: 1,
+    autopilot: { priority: ['cache', 'fight', 'rest', 'event', 'elite'], returnHpPct: 35, returnWhenFull: true, avoidEliteHpPct: 0, relaunch: false },
     flags: [],
-    logs: [],
-    codex: ['piston_bit'],
-    achievements: [],
+    combos: [],
+    lore: 0,
+    seenEnemies: [],
+    journal: [{ t: now, text: 'Unit 7 wakes at the mouth of the shaft. Its engineer — you — gets to work.' }],
+    lastReport: null,
     stats: emptyStats(),
-
     rngState: seed,
-    nextUid: 1,
-    fractureSeq: 0,
+    nextUid: 3,
     settings: { sfx: true, volume: 0.6, reducedMotion: false },
     timestamps: { created: now, lastSaved: now, lastTick: now },
   };
 }
 
-export const hasFlag = (s: GameState, flag: string): boolean => s.flags.includes(flag);
+export const newUid = (s: GameState): string => `m${s.nextUid++}`;
 
-export const newUid = (s: GameState): string => `i${s.nextUid++}`;
+export function journal(s: GameState, t: number, text: string): void {
+  s.journal.push({ t, text });
+  if (s.journal.length > 80) s.journal.splice(0, s.journal.length - 80);
+}

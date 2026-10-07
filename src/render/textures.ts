@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
-// Procedural pixel art. Every sprite is ASCII-authored so it stays in one coherent
-// 1-bit-plus-accent style and can be swapped for a CC0 pack later by key.
+// Procedural pixel art for the hero robot and the Warden (no fitting CC0 sprite exists).
+// Everything else comes from the Kenney CC0 sheets loaded in BootScene.
 
 const PALETTE: Record<string, number> = {
   o: 0x120d0b, // outline
@@ -64,101 +64,6 @@ const DRILL = [
   'ooo.......',
 ];
 
-const MITE = [
-  '................',
-  '................',
-  '................',
-  '................',
-  '......oooo......',
-  '....oowwwwoo....',
-  '...owwlwwlwwo...',
-  '..owwwwwwwwwwo..',
-  '..oweewwwweewo..',
-  '..owwwlwwlwwwo..',
-  '...owwwwwwwwo...',
-  '..ooolooooloooo.',
-  '.o..o..o.o..o..o',
-  '.o..o..o.o..o..o',
-  '................',
-  '................',
-];
-
-const CRAWLER = [
-  '................',
-  '................',
-  '................',
-  '................',
-  '.....ooooo......',
-  '...oowwwwwoo....',
-  '..owwlwwwlwwoo..',
-  '.owweewwwwwwwwo.',
-  '.owwwwwlwwwlwwo.',
-  'owwlwwwwwwwwwwwo',
-  'owwwwlwwwlwwwwwo',
-  'oddddddddddddddo',
-  '.oooooooooooooo.',
-  '................',
-  '................',
-  '................',
-];
-
-const WISP = [
-  '.......o........',
-  '......owo.......',
-  '....oowwwoo.....',
-  '...owwlllwwo....',
-  '..owwleeelwwo...',
-  '.o.owllllwwo.o..',
-  'owo.owwwwwo.owo.',
-  '.o...owwwo...o..',
-  '......owo.......',
-  '.....oo.oo......',
-  '....o.....o.....',
-  '.....oo.oo......',
-  '.......o........',
-  '................',
-  '................',
-  '................',
-];
-
-const GOLEM = [
-  '................',
-  '.....oooooo.....',
-  '....owwwwwwo....',
-  '....owewwewo....',
-  '....owwllwwo....',
-  '..ooooooooooo...',
-  '.owwwlwwwwlwwo..',
-  'owwwwwwlwwwwwwo.',
-  'owlwwwwwwwwwlwo.',
-  'owwoowwwwwoowwo.',
-  'oddo.owwwo.oddo.',
-  '.oo..owwwo..oo..',
-  '.....owdwo......',
-  '....oodooddo....',
-  '....oooooooo....',
-  '................',
-];
-
-const WORM = [
-  '................',
-  '................',
-  '................',
-  '.......ooo......',
-  '......owwwo.....',
-  '.....owewewo....',
-  '.....owwwwwo....',
-  '......owlwo.....',
-  '.....owwwwo.....',
-  '....owwlwo......',
-  '...owwwwo.......',
-  '...owlwwoo......',
-  '....owwwwwoo....',
-  '.....ooolllwo...',
-  '........ooooo...',
-  '................',
-];
-
 const BELL = [
   '...........oo...........',
   '..........owwo..........',
@@ -186,54 +91,12 @@ const BELL = [
   '........................',
 ];
 
-const FRACTURE = [
-  '....o....',
-  '...oyo...',
-  '..oywyo..',
-  '.oywwwyo.',
-  'oywwwwwyo',
-  '.oywwwyo.',
-  '..oywyo..',
-  '...oyo...',
-  '....o....',
-];
-
-const SIGNAL = [
-  '....ooo....',
-  '...occco...',
-  '..oc...co..',
-  '.oc.ccc.co.',
-  'oc.c...c.co',
-  'oc.c.c.c.co',
-  'oc.c...c.co',
-  '.oc.ccc.co.',
-  '..oc...co..',
-  '...occco...',
-  '....ooo....',
-];
-
 const SHARD = ['.oo.', 'occo', 'occo', '.oo.'];
-
-export const SHAPE_KEY: Record<string, string> = {
-  mite: 'enemy_mite',
-  crawler: 'enemy_crawler',
-  wisp: 'enemy_wisp',
-  golem: 'enemy_golem',
-  worm: 'enemy_worm',
-  bell: 'enemy_bell',
-};
 
 export function generateTextures(scene: Phaser.Scene): void {
   paint(scene, 'automaton', AUTOMATON);
   paint(scene, 'drill', DRILL);
-  paint(scene, 'enemy_mite', MITE);
-  paint(scene, 'enemy_crawler', CRAWLER);
-  paint(scene, 'enemy_wisp', WISP);
-  paint(scene, 'enemy_golem', GOLEM);
-  paint(scene, 'enemy_worm', WORM);
   paint(scene, 'enemy_bell', BELL);
-  paint(scene, 'fracture', FRACTURE);
-  paint(scene, 'signal', SIGNAL);
   paint(scene, 'shard', SHARD);
 
   if (!scene.textures.exists('px')) {

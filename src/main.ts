@@ -5,10 +5,9 @@ import './styles.css';
 import Phaser from 'phaser';
 import { Sfx } from './audio/sfx';
 import { AUTOSAVE_SECONDS, AWAY_REPORT_MIN_SEC, CATCH_UP_THRESHOLD_MS } from './config/constants';
-import { GameEngine, TICK } from './core/engine';
+import { GameEngine, TICK, type OfflineReport } from './core/engine';
 import { createInitialState, type GameState } from './core/state';
-import type { OfflineReport } from './core/systems/offline';
-import { BattleScene, VIEW_H, VIEW_W } from './render/scenes/BattleScene';
+import { ShaftScene, VIEW_H, VIEW_W } from './render/scenes/ShaftScene';
 import { FutureSaveError } from './save/migrations';
 import { decodeExport, encodeExport, fromSave, toSave } from './save/serializer';
 import { NoopAnalyticsService, type AnalyticsService } from './services/analytics';
@@ -27,7 +26,7 @@ async function boot(): Promise<void> {
   const analytics: AnalyticsService = new NoopAnalyticsService();
   // Content comes through the repository so a remote/live-ops source can replace it later.
   await new LocalGameRepository().loadContent();
-  // Present for future cosmetics UI; gameplay never touches it.
+  // Present for a future cosmetics menu; gameplay never touches it.
   void new MockMonetizationService();
 
   let now = clock.now();
@@ -40,8 +39,9 @@ async function boot(): Promise<void> {
     try {
       const res = fromSave(raw, now);
       state = res.state;
-      loaded = true;
-      if (!res.checksumOk) bootMessage = 'Your save looked damaged; recovered what could be read.';
+      loaded = !res.legacy;
+      if (res.legacy) bootMessage = 'Rustheart has been rebuilt from the ground up: you are now the robot’s engineer. Your clicker-era progress could not carry over — welcome to a fresh start.';
+      else if (!res.checksumOk) bootMessage = 'Your save looked damaged; recovered what could be read.';
     } catch (err) {
       state = createInitialState(now);
       if (err instanceof FutureSaveError) {
@@ -61,8 +61,7 @@ async function boot(): Promise<void> {
   const toasts = new Toasts(document.body);
 
   const saveNow = () => {
-    if (savingDisabled) return;
-    saves.save(toSave(engine.state, clock.now()));
+    if (!savingDisabled) saves.save(toSave(engine.state, clock.now()));
   };
 
   const app = new App(root, {
@@ -92,9 +91,8 @@ async function boot(): Promise<void> {
     },
   });
 
-  // Analytics hooks live outside the core.
-  engine.bus.on('bossDefeated', (e) => analytics.track('warden_defeated', { boss: e.bossId, first: e.firstKill }));
-  engine.bus.on('collapsed', (e) => analytics.track('collapse', { echoes: e.echoes }));
+  engine.bus.on('returned', (e) => analytics.track('expedition_end', { tier: e.report.tier, layers: e.report.layers, broken: e.report.broken }));
+  engine.bus.on('built', (e) => analytics.track('built', { id: e.id, level: e.level }));
   engine.bus.on('unlock', (e) => analytics.track('unlock', { flag: e.flag }));
 
   try {
@@ -113,12 +111,11 @@ async function boot(): Promise<void> {
     banner: false,
     audio: { noAudio: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [new BattleScene(engine)],
+    scene: [new ShaftScene(engine)],
   });
 
   window.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
-
-  if (bootMessage) toasts.show(bootMessage, 'danger', 7000);
+  if (bootMessage) toasts.show(bootMessage, 'danger', 9000);
   if (offline && offline.elapsedSec >= AWAY_REPORT_MIN_SEC) app.showOffline(offline);
 
   // Fixed-step logic, decoupled from rendering.
@@ -130,6 +127,7 @@ async function boot(): Promise<void> {
     const dtMs = t - last;
     last = t;
     now = clock.now();
+    engine.interactive = document.visibilityState === 'visible';
     if (dtMs > CATCH_UP_THRESHOLD_MS) {
       const r = engine.catchUp(now);
       acc = 0;
@@ -164,7 +162,7 @@ async function boot(): Promise<void> {
   });
   window.addEventListener('pagehide', saveNow);
 
-  // Debug handle for the console (no effect on gameplay).
+  // Debug handle for the console and automated smoke tests (no effect on gameplay).
   (window as unknown as { rustheart: unknown }).rustheart = { engine, game };
 }
 
