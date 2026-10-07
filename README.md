@@ -17,6 +17,14 @@ npm test           # core logic, boss, saves/migrations, offline, probes, presti
 npm run sim -- 120 0.4 0.5   # headless pacing simulation: minutes, taps/sec, fracture accuracy
 ```
 
+## Deploy (GitHub Pages)
+
+The game is a fully static site — no backend. `.github/workflows/deploy.yml` tests, builds and
+publishes `dist/` on every push to the default branch (other branches and PRs only build + test).
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+The game is then served at `https://<user>.github.io/<repo>/` (relative asset paths via `base: './'`).
+
 ## What is in the MVP
 
 - **Fractures** — the click that matters: glowing cracks open on enemies; striking them deals ×4, builds Chain and Heat, and is the *only* source of Shards. Automatable later (Governor Relay / Governor Instinct).
