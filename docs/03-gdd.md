@@ -1,3 +1,5 @@
+> ⚠️ **Застаріло.** Це clicker-версія (v1). Актуальний дизайн — [`07-gdd-v2-engineer.md`](07-gdd-v2-engineer.md).
+
 # 03 — RUSTHEART · Game Design Document
 
 > **Hook:** *You are a buried drilling automaton, and every stratum you break teaches your machine a new instinct — but when the shaft collapses, you keep only what you remember.*

@@ -44,10 +44,11 @@ The game is then served at `https://<user>.github.io/<repo>/` (relative asset pa
 |---|---|
 | 1 | [Research: genre analysis & patterns](docs/01-research.md) |
 | 2 | [10 concepts, mechanics worth borrowing, 5 hybrids, scoring matrix, winner, hook](docs/02-concepts.md) |
-| 3 | [Game Design Document: loops, click, active/idle, expeditions, bosses, builds, economy, unfolding, discovery, prestige, meta, game feel, balance](docs/03-gdd.md) |
+| 3 | *(v1, superseded)* [Game Design Document: loops, click, active/idle, expeditions, bosses, builds, economy, unfolding, discovery, prestige, meta, game feel, balance](docs/03-gdd.md) |
 | 4 | [Tech: engine comparison, libraries, architecture, data models, saves, anti-cheat, online, monetization](docs/04-tech.md) |
 | 5 | [Assets, license manifest, art direction](docs/05-assets-art.md) · [`assets/manifest.json`](assets/manifest.json) |
-| 6 | [MVP scope & roadmap](docs/06-mvp-roadmap.md) |
+| 6 | [MVP scope & roadmap (v1)](docs/06-mvp-roadmap.md) |
+| 7 | **[GDD v2 — Engineer: module grid, auto-expeditions, camp (current direction)](docs/07-gdd-v2-engineer.md)** |
 
 ## Architecture in one breath
 
