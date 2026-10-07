@@ -15,7 +15,7 @@ export const UNLOCKS: UnlockRule[] = [
   { flag: 'signals', when: [{ metric: 'maxDepth', gte: 5 }], message: 'Your sensors pick up… something. Watch for strange signals.' },
   { flag: 'hopper', when: [{ metric: 'maxDepth', gte: 5 }], message: 'Scrap Hopper: the shaft keeps working while you are away.' },
   { flag: 'rig', when: [{ metric: 'itemsFound', gte: 1 }], message: 'A module! Your RIG can be rebuilt.', hint: 'Something buried in the rock…' },
-  { flag: 'probes', when: [{ metric: 'maxDepth', gte: 6 }], message: 'Side fissures detected. Dispatch PROBES.', hint: 'Fissures branch off around depth 6' },
+  { flag: 'probes', when: [{ metric: 'maxDepth', gte: 6 }], message: 'Side fissures detected. Dispatch PROBES.', hint: 'Side fissures branch off the shaft…' },
   { flag: 'hull', when: [{ metric: 'probesSent', gte: 1 }], message: 'Probe Hull upgrade available.' },
   { flag: 'forge', when: [{ metric: 'maxDepth', gte: 7 }], message: 'The FORGE wakes: turn Shards into modules.' },
   { flag: 'warden', when: [{ metric: 'maxDepth', gte: 9 }], message: 'Something enormous waits at depth 10.' },

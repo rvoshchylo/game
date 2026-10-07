@@ -50,8 +50,12 @@ src/
     events.ts          Типізований EventBus (core → render/ui/audio)
     formulas.ts        Усі формули балансу (PART 25)
     stats.ts           computeStats(): upgrades + items + doctrine + memories → Stats
+    metrics.ts         іменовані метрики для unlock-ів і ачівок
+    context.ts         Ctx — що отримує кожна система
     rng.ts             Детермінований seeded RNG (mulberry32)
     systems/
+      economy.ts       Scrap/Shards/Heat — єдині точки нарахування
+      upgrades.ts      купівля апгрейдів
       combat.ts        удари, тріщини, vent, вороги, смерть, retreat
       boss.ts          фази, правила, toll
       progression.ts   глибина, push/hold, unlock-и

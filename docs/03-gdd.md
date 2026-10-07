@@ -30,9 +30,9 @@
 ```
 ACTIVE LOOP (секунди)
   Tap enemy ──► Strike dmg + Heat
-  Tap FRACTURE ──► ×5 dmg + Shard + Heat + Chain
+  Tap FRACTURE ──► ×4 dmg + Shard + Heat + Chain
         │
-        └─► Heat 100 ──► VENT (6s ×3 dmg, тріщини частіше, ламає щит боса)
+        └─► Heat 100 ──► VENT (6s ×2 dmg, тріщини частіше, ламає щит боса)
                               │
                               └─► Рішення: Vent зараз чи тримати під боса?
 
@@ -62,8 +62,8 @@ META LOOP (години)
 ## 3. THE CLICK MUST MATTER (PART 7) — **Fractures**
 
 - На ворогові кожні ~3.5с з'являється **Fracture** (тріщина, що світиться) на ~1.6с у випадковій точці.
-- Tap по тріщині: **×5 damage**, **+1 Shard**, **+20 Heat**, **+1 Chain**.
-- **Chain**: кожне послідовне влучання +0.25× (до ×2). Пропущена тріщина = chain скидається.
+- Tap по тріщині: **×4 damage**, **+1 Shard**, **+20 Heat**, **+1 Chain**.
+- **Chain**: кожне послідовне влучання +0.1× (до ×1.5). Пропущена тріщина = chain скидається.
 - Tap повз тріщину: звичайний strike (+2 Heat). Немає штрафу — клік ніколи не "поганий".
 - Чому не виснажує: подія **раз на кілька секунд**, а не спам; ритм "подивився → влучив". Через 5 годин її можна автоматизувати:
   - модуль **Governor Relay** (займає слот!) — б'є тріщини сам з шансом;
@@ -74,7 +74,7 @@ META LOOP (години)
 
 | | Active | Idle/Offline |
 |---|---|---|
-| Damage | auto + strikes + fractures ×5 + vent ×3 | auto only |
+| Damage | auto + strikes + fractures ×4 + vent ×2 | auto only |
 | Scrap | 100% | **50%** efficiency |
 | Shards | fractures, signals, probes | **тільки probes** |
 | Depth | push, бос | **farm** на `min(current, maxCleared)` — ніколи не просуває глибину |
@@ -93,7 +93,8 @@ META LOOP (години)
 ## 5. Descent & Expedition system (PART 9)
 
 ### 5.1 Descent (основна вісь)
-- Глибина `d`. Для переходу: **5 kills** (4 з Depth Gauge).
+- Глибина `d`. Для переходу: **10 kills** (9 з Depth Gauge).
+- Переможений у цьому run-і Warden "відкриває" свою глибину: Retreat через неї не змушує бити боса знову.
 - **Push** — автоматичний перехід; **Hold** — фарм на місці; **▲ Ascend** — піднятися на 1.
 - Integrity = 0 → **Retreat**: `d−1`, Integrity 50%, **Rust Debt** (−25% dmg, 15с), режим → Hold.
 - Кожна 10-та глибина — **Warden**. Push зупиняється перед ним, потрібен свідомий **Challenge**.
@@ -123,9 +124,9 @@ Push-vs-farm рівень експедицій: SAFE (Shallow Cautious) = гар
 | Phase | HP | Правило | Що робить гравець |
 |---|---|---|---|
 | I · Toll | 100–60% | Кожні 6с **Toll**: −15% max Integrity | Plating/Repair Drone або Counter-Toll |
-| II · Shell | 60–25% | **Shelled**: auto dmg ×0.2, fractures ×2 | **Примушує active play** (або Governor); Vent знімає щит |
+| II · Shell | 60–25% | **Shelled**: auto ×0.2, strike ×0.35, fractures ×1.5 | **Примушує active play** (або Governor); Vent знімає щит |
 | III · Resonance | <25% | Toll кожні 3с | Burst (тримай Vent) + survivability |
-- HP = `hp(d) × 15`, timer 75с. Fail → Retreat на d−1.
+- HP = `hp(d) × 20`, timer 75с. Fail → Retreat на d−1.
 - **Counter-Toll** (secret): tap по Дзвону у вікно 0.45с до удару скасовує Toll і дає +40 Heat.
 - **Unique reward** (перше вбивство): **Clapper Core** — core, що перетворює Vent на лікування й дає Heat від Toll-ів.
 
@@ -162,7 +163,7 @@ Rarity: Common ×1.0 · Rare ×1.35 · Epic ×1.75 · Relic ×2.3 — множн
 | Echo Antenna | module | Strange Signals ×3, rare enemies ×2 |
 | Repair Drone | utility | regen +1% max/с |
 | Probe Bay | utility | +1 слот Probe |
-| Depth Gauge | utility | 4 kills на глибину замість 5 |
+| Depth Gauge | utility | 9 kills на глибину замість 10 |
 
 ### Archetypes (назви світу)
 | Build | Ідея | Ключові предмети |
@@ -237,7 +238,8 @@ Rarity: Common ×1.0 · Rare ×1.35 · Epic ×1.75 · Relic ×2.3 — множн
 ## 11. Prestige — Collapse (PART 15)
 - Доступний після першого Warden. `Echoes = floor((maxDepth − 5)^1.5 / 3) + 2 × wardensThisRun` (× Doctrine).
 - UI показує: "+X Echoes now · next Echo at depth Y" → **рішення "ще 20 хвилин?"**
-- **Скидається:** depth, Scrap, Shards (крім 10%), upgrades, модулі (крім Heirloom).
+- **Скидається:** depth, Scrap, Shards (крім 10%), upgrades, модулі (крім Heirloom), probes у польоті.
+- **Resonance:** кожен *невитрачений* Echo дає +2% damage → рішення "Hoard or Remember".
 - **Лишається:** Echoes, Memories, Logs, Codex, best depth, статистика, achievements.
 - **Doctrine** (вибір на кожен run, з tradeoff):
   - **Hammer** — strike ×2, auto ×0.5
@@ -260,7 +262,7 @@ Rarity: Common ×1.0 · Rare ×1.35 · Epic ×1.75 · Relic ×2.3 — множн
 ---
 
 ## 13. Game feel (PART 24)
-- **Strike:** спрайт ворога стискається (scale 0.9→1, 80мс), білий flash, 3–5 іскор, short "tick" (pitch random ±8%).
+- **Strike:** спрайт ворога стискається (squash 50мс), білий FILL-tint flash, 4 іскри, джеб буром, short "tick" (pitch random).
 - **Fracture hit:** hit-stop 40мс, кільце-shockwave, 12 помаранчевих іскор, ±2px shake, гучніший "clank" з pitch за chain; floating number більший і жовтий; Shard летить до лічильника.
 - **Floating numbers:** звичайні — білі дрібні; crit/fracture — жовті з bounce; boss — червоні; групуються, якщо >6/с.
 - **Kill:** розпад на 20 частинок кольору ворога, Scrap "монетки" летять у HUD (tween), counter "pop".
@@ -271,24 +273,43 @@ Rarity: Common ×1.0 · Rare ×1.35 · Epic ×1.75 · Relic ×2.3 — множн
 
 ## 14. Balance model (PART 25)
 
+Формули — `src/core/formulas.ts` (єдине джерело), значення апгрейдів — `src/data/upgrades.ts`.
+
 ```
-hp(d)          = 6 · 1.21^(d−1) · (1 + 0.03·(d−1))         // normal enemy, × enemy.hpMul
-bossHp(d)      = hp(d) · 15
-scrap(d)       = 1.4 · 1.19^(d−1)                          // × enemy.scrapMul × mods
-enemyDmg(d)    = 0.9 · 1.19^(d−1)                          // per attack, × atkMul
-strike(lvl)    = (1 + lvl) · 1.06^lvl                      // Servo Arm
-autoDps(lvl)   = 0.7 · lvl · 1.07^lvl                      // Drill Motor
-maxIntegrity   = 20 · (1 + 0.5·lvl) · 1.05^lvl             // Plating
-regen/s        = 1 + 0.02 · maxIntegrity
+hp(d)          = 10 · 1.25^(d−1) · (1 + 0.15·(d−1))          // × enemy.hpMul × doctrine
+bossHp(d)      = hp(d) · 20                                   // Hollow Bell, 75s shaft timer
+scrap(d)       = 1.5 · 1.2^(d−1)                              // × enemy.scrapMul × scrapMul
+enemyDmg(d)    = 1.0 · 1.2^(d−1)                              // per attack, × atkMul
+milestone(l)   = 2^floor(l/10)                                // ★ ×2 every 10 levels
+strike(l)      = (1 + l) · milestone(l) · resonance           // Servo Arm
+autoDps(l)     = 0.5 · l · milestone(l) · resonance           // Drill Motor
+maxIntegrity   = 20 · (1 + 0.5·l) · 1.05^l                    // Plating
+regen/s        = 1 + 0.02·maxIntegrity (+ regenPct·max)
 cost(n)        = base · growth^n
-    Servo  10·1.16^n   Motor 15·1.17^n   Plating 25·1.19^n
-    Exchanger 60·1.45^n (max 10)   Hopper 200·1.8^n (max 8)   Hull 120·1.5^n (max 10)
-fracture dmg   = strike · 5 · chainMul(1 + 0.25·chain, ≤2) · fractureMul
-vent           = ×3 all damage, 6s (+0.5s/lvl Exchanger)
-offline scrap  = elapsed · autoDps · 0.5 / hp(farmD) · scrap(farmD)
-echoes         = floor((maxDepth − 5)^1.5 / 3) + 2·wardens
+   Servo 8·1.19^n · Motor 10·1.19^n · Plating 15·1.2^n
+   Exchanger 60·1.45^n (≤10) · Hopper 200·1.8^n (≤8) · Hull 120·1.5^n (≤10)
+fracture       = strike · 4 · fractureMul · chain(1 + 0.1·min(chain,5)) · vent(×2) · ghost(×2)
+kills/depth    = 10 (9 з Depth Gauge)
+offline        = min(elapsed, 4h + hopper) · autoDps · 0.5 / hp(farmD) · scrap(farmD)
+echoes         = floor((maxDepth − 5)^1.5 / 3) + 2·wardensThisRun   (× echoMul)
+resonance      = 1 + 0.02 · unspentEchoes                     // "Hoard or Remember"
 ```
-**Логіка кривих:** HP росте як `1.21^d` (з невеликим лінійним доданком — пізні глибини стають "стіною"), а дохід як `1.19^d`: кожна наступна глибина трохи менш вигідна → гравець природно впирається у стіну, де **треба** або фармити, або змінити білд, або зробити Collapse. Вартість апгрейдів `1.16–1.19^n` при майже лінійно-експоненційному ефекті (`1.06–1.07^lvl`) дає ~35–45 рівнів за перший run. Echoes ростуть як степенева функція глибини (`^1.5`) — "ще 5 глибин" завжди помітно більше нагороди. Баланс перевіряється симуляцією `npm run sim`.
+
+**Логіка кривих.**
+- HP росте `1.25^d` з лінійним множником, дохід — `1.2^d`: кожна глибина трохи менш вигідна → м'яка стіна, де треба фармити, міняти білд або робити Collapse.
+- Апгрейд коштує `×1.19` за рівень, а дає ~+10% (лінійно) плюс **★×2 кожні 10 рівнів** — видима ціль "ще 2 рівні до зірки".
+- Warden = 20× HP звичайного ворога з таймером 75с: потрібен або burst (Vent + Shell), або підготовка (апгрейди/модулі) — саме момент "ще один апгрейд".
+- Echoes ростуть як `(d−5)^1.5` — кожні +5 глибин відчутно більше, тому "ще 20 хвилин" завжди має сенс.
+- **Resonance**: невитрачені Echoes = +2% damage кожен. Купити Memory (новий verb) чи тримати силу — справжній trade-off prestige-шару.
+
+**Перевірка симуляцією** (`npm run sim -- <хв> <тапів/с> <точність>`; бот купує найдешевший апгрейд, вентить, кидає виклик Warden-у):
+
+| Профіль | depth 4 | depth 10 | 1-й Warden | depth 20 | 1-й Collapse |
+|---|---|---|---|---|---|
+| Легкий active (0.4 тапа/с, 50%) | 4:25 | 13:10 | ~36 хв | ~64 хв | ~75 хв |
+| Дуже активний (1.5 тапа/с, 60%) | 1:22 | 4:55 | ~8 хв | ~18 хв | ~28 хв |
+
+Подальші run-и проходять перші 10 глибин за 2–4 хв (Muscle Memory + Resonance), а стіна зсувається на Warden 20 → 30.
 
 ## 15. UX (PART 31)
 - Mobile-first: верхня половина — Phaser сцена (ворог, автомат, тріщини), нижня — HTML-панелі.

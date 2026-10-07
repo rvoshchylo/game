@@ -15,9 +15,9 @@ export const FRACTURE_HEAT = 20;
 export const COUNTER_TOLL_HEAT = 40;
 export const SHARD_KEEP_ON_COLLAPSE = 0.1;
 
-export const enemyHp = (d: number): number => 20 * Math.pow(1.25, d - 1) * (1 + 0.04 * (d - 1));
-export const scrapReward = (d: number): number => 0.8 * Math.pow(1.2, d - 1);
-export const enemyDamage = (d: number): number => 0.8 * Math.pow(1.2, d - 1);
+export const enemyHp = (d: number): number => 10 * Math.pow(1.25, d - 1) * (1 + 0.15 * (d - 1));
+export const scrapReward = (d: number): number => 1.5 * Math.pow(1.2, d - 1);
+export const enemyDamage = (d: number): number => 1.5 * Math.pow(1.2, d - 1);
 
 /** ×2 power spike every 10 levels: a visible "one more level" goal. */
 export const milestoneMul = (lvl: number): number => Math.pow(2, Math.floor(lvl / 10));

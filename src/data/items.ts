@@ -143,7 +143,7 @@ export const ITEMS: ItemDefinition[] = [
     name: 'Depth Gauge',
     slot: 'utility',
     archetype: 'Courier',
-    description: 'Only 4 kills needed per depth.',
+    description: 'One fewer kill needed per depth.',
     effects: [{ stat: 'killsPerDepthDelta', op: 'add', value: -1 }],
   },
 ];
