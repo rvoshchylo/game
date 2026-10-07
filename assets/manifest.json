@@ -1,0 +1,140 @@
+{
+  "$comment": "Asset License Manifest. Every asset shipped in the build MUST have an entry with inUse=true. Re-verify License.txt inside each archive before importing.",
+  "assets": [
+    {
+      "name": "Procedural sprites (Rustheart)",
+      "source": "src/render/textures.ts",
+      "author": "Rustheart project",
+      "license": "Project-owned",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": true,
+      "usage": "automaton, enemies, boss, fractures, particles"
+    },
+    {
+      "name": "Synthesized SFX (Rustheart)",
+      "source": "src/audio/sfx.ts",
+      "author": "Rustheart project",
+      "license": "Project-owned",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": true,
+      "usage": "all MVP sound effects (Web Audio synthesis)"
+    },
+    {
+      "name": "Pixelify Sans",
+      "source": "https://fonts.google.com/specimen/Pixelify+Sans (npm @fontsource/pixelify-sans)",
+      "author": "Stefie Justprince",
+      "license": "OFL-1.1",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "attributionText": "Pixelify Sans by Stefie Justprince, SIL Open Font License 1.1",
+      "modificationAllowed": true,
+      "inUse": true,
+      "usage": "headings, numbers"
+    },
+    {
+      "name": "Silkscreen",
+      "source": "https://fonts.google.com/specimen/Silkscreen (npm @fontsource/silkscreen)",
+      "author": "Jason Kottke",
+      "license": "OFL-1.1",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "attributionText": "Silkscreen by Jason Kottke, SIL Open Font License 1.1",
+      "modificationAllowed": true,
+      "inUse": true,
+      "usage": "small labels"
+    },
+    {
+      "name": "1-Bit Pack",
+      "source": "https://kenney-assets.itch.io/1-bit-pack",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: enemy/item sprites, tinted per stratum"
+    },
+    {
+      "name": "Tiny Dungeon",
+      "source": "https://kenney-assets.itch.io/tiny-dungeon",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: alternative enemy sprites"
+    },
+    {
+      "name": "Particle Pack (80 sprites)",
+      "source": "https://opengameart.org/content/particle-pack-80-sprites",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: vent/spark particles"
+    },
+    {
+      "name": "Game Icons",
+      "source": "https://opengameart.org/content/game-icons",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: UI icons"
+    },
+    {
+      "name": "Interface Sounds",
+      "source": "https://opengameart.org/content/interface-sounds",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: UI SFX"
+    },
+    {
+      "name": "Sci-Fi Sounds",
+      "source": "https://opengameart.org/content/sci-fi-sounds",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: drill, vent, explosions"
+    },
+    {
+      "name": "4 Chiptunes (Adventure)",
+      "source": "https://opengameart.org/node/74001",
+      "author": "Juhani Junkala",
+      "license": "CC0-1.0",
+      "commercialUse": true,
+      "attributionRequired": false,
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: background music + boss track"
+    },
+    {
+      "name": "game-icons.net",
+      "source": "https://game-icons.net",
+      "author": "Lorc, Delapouite and contributors",
+      "license": "CC-BY-3.0",
+      "commercialUse": true,
+      "attributionRequired": true,
+      "attributionText": "Icons by Lorc, Delapouite & contributors — https://game-icons.net (CC BY 3.0)",
+      "modificationAllowed": true,
+      "inUse": false,
+      "usage": "planned: item icons (requires credits screen)"
+    }
+  ]
+}
