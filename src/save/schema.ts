@@ -1,11 +1,11 @@
-import type { GameState } from '../core/state';
+import type { Profile } from '../run/meta';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
-/** v3: the whole (JSON-safe) game state, including an expedition in progress. */
+/** v4: the survivor profile (meta progress + settings). Runs themselves are not saved. */
 export interface SaveData {
   version: number;
-  state: GameState;
+  profile: Profile;
   savedAt: number;
   /** Corruption detection only — never trust a local save. */
   checksum?: string;

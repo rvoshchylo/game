@@ -1,4 +1,5 @@
-import type { GameEngine } from '../core/engine';
+import type { Settings } from '../run/meta';
+import type { SimEvent } from '../run/sim';
 
 /**
  * Synthesized SFX (Web Audio). No files, no licenses, tiny build.
@@ -10,7 +11,7 @@ export class Sfx {
   private noise: AudioBuffer | null = null;
   private lastPlay = new Map<string, number>();
 
-  constructor(private engine: GameEngine) {}
+  constructor(private settings: () => Settings) {}
 
   /** Browsers require a user gesture before audio may start. */
   unlock(): void {
@@ -30,7 +31,7 @@ export class Sfx {
   }
 
   private ready(name: string, minGapMs: number): AudioContext | null {
-    const s = this.engine.state.settings;
+    const s = this.settings();
     if (!this.ctx || !this.master || !s.sfx || this.ctx.state !== 'running') return null;
     this.master.gain.value = s.volume * 0.5;
     const now = performance.now();
@@ -150,25 +151,53 @@ export class Sfx {
     [392, 523, 659, 784, 1047].forEach((f, i) => this.tone('square', f, 0.3, 0.07, undefined, i * 0.1));
   }
 
-  bind(): void {
-    const b = this.engine.bus;
-    b.on('moduleFire', (e) => (e.hits.length > 1 || e.defId === 'hammer' ? this.fracture(e.hits.length) : this.strike()));
-    b.on('enemyDie', (e) => this.kill(e.defId === 'hollow_bell'));
-    b.on('robotHit', (e) => e.dmg > 0 && this.hurt());
-    b.on('toll', () => this.toll());
-    b.on('bossPhase', () => this.tollWarn());
-    b.on('breakdown', () => this.retreat());
-    b.on('blueprint', () => this.item(2));
-    b.on('core', () => this.fanfare());
-    b.on('unlock', () => this.unlock_());
-    b.on('combo', () => this.counter());
-    b.on('built', () => this.item(1));
-    b.on('merged', () => this.item(1));
-    b.on('crafted', () => this.click());
-    b.on('choiceNeeded', () => this.signal());
-    b.on('eventStart', () => this.signal());
-    b.on('returned', () => this.heatFull());
-    b.on('launched', () => this.vent());
-    b.on('error', () => this.error());
+  gem(): void {
+    if (!this.ready('gem', 45)) return;
+    this.tone('triangle', 1100 + Math.random() * 300, 0.05, 0.035);
+  }
+
+  /** React to simulation events. */
+  play(e: SimEvent): void {
+    switch (e.k) {
+      case 'shot':
+        this.strike();
+        break;
+      case 'kill':
+        this.kill(e.boss);
+        break;
+      case 'hurt':
+        this.hurt();
+        break;
+      case 'gem':
+        this.gem();
+        break;
+      case 'levelup':
+        this.unlock_();
+        break;
+      case 'chest':
+        this.item(3);
+        break;
+      case 'boss':
+        this.toll();
+        break;
+      case 'swarm':
+        this.signal();
+        break;
+      case 'blast':
+        this.vent();
+        break;
+      case 'pickup':
+        if (e.kind !== 'chest') this.item(1);
+        break;
+      case 'revive':
+        this.counter();
+        break;
+      case 'over':
+        if (e.result === 'win') this.fanfare();
+        else this.retreat();
+        break;
+      default:
+        break;
+    }
   }
 }

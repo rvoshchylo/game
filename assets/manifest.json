@@ -10,7 +10,7 @@
       "attributionRequired": false,
       "modificationAllowed": true,
       "inUse": true,
-      "usage": "robot, Warden (Hollow Bell), rock texture, particles"
+      "usage": "robot, Hollow Bell boss, ground, crystals, saws, bolts, slashes, particles"
     },
     {
       "name": "Synthesized SFX (Rustheart)",
@@ -44,7 +44,7 @@
       "attributionRequired": false,
       "modificationAllowed": true,
       "inUse": true,
-      "usage": "module, building, node and resource icons",
+      "usage": "weapon / passive / upgrade icons, coins, magnet, mortar shell",
       "licenseFile": "public/assets/kenney/License-1bit-pack.txt",
       "file": "public/assets/kenney/onebit.png",
       "mirror": "https://github.com/bill2432/kenney-2d-mirror (sha256 verified against its manifest; archive contains the original Kenney License.txt)"
@@ -58,7 +58,7 @@
       "attributionRequired": false,
       "modificationAllowed": true,
       "inUse": true,
-      "usage": "enemy sprites",
+      "usage": "enemies, Pit Cyclops boss, potion and chest pickups",
       "licenseFile": "public/assets/kenney/License-tiny-dungeon.txt",
       "file": "public/assets/kenney/tiny-dungeon.png",
       "mirror": "https://github.com/bill2432/kenney-2d-mirror (sha256 verified against its manifest; archive contains the original Kenney License.txt)"

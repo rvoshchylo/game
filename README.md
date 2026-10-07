@@ -1,8 +1,8 @@
 # Rustheart
 
-> *You are the engineer of the last drilling robot. You don't fight — you build the machine, choose its path, and watch whether your design survives the deep.*
+> *Move your robot. Its weapons fire on their own. Survive 10 minutes in the shaft.*
 
-A calm, no-clicking browser game: arrange modules on the robot's grid (shapes, power, neighbour synergies), send it on auto-battling expeditions down a branching shaft, grow a camp that unlocks new systems. Plays fine in 3-minute check-ins; keeps going while you're away.
+A **Vampire Survivors–style** action roguelite for the browser: hordes of enemies, auto-attacking weapons, pick 1 of 3 upgrades on every level, boss chests, weapon evolutions, and permanent upgrades / new robots between runs. Works with keyboard or a touch joystick.
 
 **Languages:** Українська · English · Русский (auto-detected, switch in ⚙ Settings). In-game **GUIDE** tab explains every system.
 
@@ -15,7 +15,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # typecheck + static build into dist/ (deploy anywhere)
 npm test           # core logic, boss, saves/migrations, offline, probes, prestige, license manifest
-npm run sim -- 4             # headless pacing simulation: a scripted engineer plays N hours
+npm run sim -- 5             # balance check: a kiting bot plays N full runs
 ```
 
 ## Deploy (GitHub Pages)
@@ -26,14 +26,13 @@ publishes `dist/` on every push to the default branch (other branches and PRs on
 One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 The game is then served at `https://<user>.github.io/<repo>/` (relative asset paths via `base: './'`).
 
-## What is in the game (v2, "Engineer")
+## What is in the game (v3, "Survivors")
 
-- **Module grid** (3×3 → 5×5): 13 modules with tetromino-like shapes, rotation, a power budget, and neighbour synergies (batteries charge weapons, coolers speed them up, reactors overheat the uncooled, plates love corners, magnets feed cargo holds). Named combos are discoveries.
-- **Auto-expeditions**: the robot walks and fights on its own; every module visibly fires. At each fork you pick Fight / Elite / Cache / Rest / Event — or the autopilot does after a few seconds.
-- **The Hollow Bell**: a Warden that tolls through armor (bring shields) and armors up at half health (bring Breakers). Beating it opens the next tier.
-- **Camp**: Workshop (grid size, crafting), Storage, Repair Dock, Radio Tower (autopilot rules, auto-relaunch), Forge (merge twins into higher levels).
-- **Idle**: time away is simulated by the same engine (up to 8 h); you come back to a journal of what happened.
-- **Saves** v3 (whole state, including an expedition mid-fight), checksummed, backup slot, export/import. Clicker-era saves start fresh with a notice.
+- 6 auto weapons (Drill Slash, Spark Bolt, Orbit Saw, Shock Field, Mortar, Laser Lance), 6 passives, 4+4 slots.
+- 6 weapon evolutions (max weapon + matching passive → boss chest).
+- 7 enemy types joining minute by minute, swarms, 2 bosses (5:00, 8:00); win at 10:00.
+- Between runs: 10 permanent upgrades, 4 robots, unlockable weapons, collection & records.
+- 3 languages (uk/en/ru), in-game guide, saves with migrations, GitHub Pages deploy.
 
 ## Docs (design before code)
 
@@ -45,7 +44,8 @@ The game is then served at `https://<user>.github.io/<repo>/` (relative asset pa
 | 4 | [Tech: engine comparison, libraries, architecture, data models, saves, anti-cheat, online, monetization](docs/04-tech.md) |
 | 5 | [Assets, license manifest, art direction](docs/05-assets-art.md) · [`assets/manifest.json`](assets/manifest.json) |
 | 6 | [MVP scope & roadmap (v1)](docs/06-mvp-roadmap.md) |
-| 7 | **[GDD v2 — Engineer: module grid, auto-expeditions, camp (current direction)](docs/07-gdd-v2-engineer.md)** |
+| 7 | *(v2, superseded)* [GDD v2 — Engineer](docs/07-gdd-v2-engineer.md) |
+| 8 | **[GDD v3 — Survivors (current)](docs/08-gdd-v3-survivors.md)** |
 
 ## Architecture in one breath
 

@@ -15,5 +15,3 @@ export function sprite(sheet: 'onebit' | 'tiny', frame: number, scale = 2, extra
   });
 }
 
-export const RES_ICON = { scrap: 829, copper: 237, cores: 524, blueprint: 768 } as const;
-export const NODE_ICON: Record<string, number> = { fight: 425, elite: 577, cache: 390, rest: 529, event: 674, boss: 141 };

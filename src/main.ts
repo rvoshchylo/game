@@ -2,10 +2,9 @@ import '@fontsource/tiny5/400.css';
 import './styles.css';
 import Phaser from 'phaser';
 import { Sfx } from './audio/sfx';
-import { AUTOSAVE_SECONDS, AWAY_REPORT_MIN_SEC, CATCH_UP_THRESHOLD_MS } from './config/constants';
-import { GameEngine, TICK, type OfflineReport } from './core/engine';
-import { createInitialState, type GameState } from './core/state';
-import { ShaftScene, VIEW_H, VIEW_W } from './render/scenes/ShaftScene';
+import { detectLang, isLang, setLang, t } from './i18n';
+import { RunScene } from './render/RunScene';
+import { createProfile, type Profile } from './run/meta';
 import { FutureSaveError } from './save/migrations';
 import { decodeExport, encodeExport, fromSave, toSave } from './save/serializer';
 import { NoopAnalyticsService, type AnalyticsService } from './services/analytics';
@@ -13,8 +12,7 @@ import { systemClock } from './services/clock';
 import { MockMonetizationService } from './services/monetization';
 import { LocalGameRepository } from './services/repository';
 import { LocalSaveService } from './services/save';
-import { detectLang, isLang, setLang, t } from './i18n';
-import { App } from './ui/app';
+import { Game } from './ui/game';
 import { Modal } from './ui/modal';
 import { Toasts } from './ui/toast';
 
@@ -28,73 +26,64 @@ async function boot(): Promise<void> {
   // Present for a future cosmetics menu; gameplay never touches it.
   void new MockMonetizationService();
 
-  let now = clock.now();
-  let state: GameState;
-  let loaded = false;
+  let profile: Profile = createProfile();
   let savingDisabled = false;
   let bootMessage: string | null = null;
   const raw = saves.load();
   if (raw) {
     try {
-      const res = fromSave(raw, now);
-      state = res.state;
-      loaded = !res.legacy;
+      const res = fromSave(raw);
+      profile = res.profile;
       if (res.legacy) bootMessage = 'boot.legacy';
       else if (!res.checksumOk) bootMessage = 'boot.damaged';
     } catch (err) {
-      state = createInitialState(now);
       if (err instanceof FutureSaveError) {
         savingDisabled = true;
         bootMessage = 'boot.future';
       } else bootMessage = 'boot.unreadable';
     }
-  } else state = createInitialState(now);
+  }
+  const lang = isLang(profile.settings.lang) ? profile.settings.lang : detectLang();
+  setLang(lang);
+  document.documentElement.lang = lang;
 
-  setLang(isLang(state.settings.lang) ? state.settings.lang : detectLang());
-  document.documentElement.lang = isLang(state.settings.lang) ? state.settings.lang : detectLang();
-  const engine = new GameEngine(state, now);
-  const offline: OfflineReport | null = loaded ? engine.catchUp(now) : null;
-
-  const root = document.getElementById('app')!;
-  const sfx = new Sfx(engine);
-  sfx.bind();
-  const modal = new Modal(document.body);
-  const toasts = new Toasts(document.body);
-
-  const saveNow = () => {
-    if (!savingDisabled) saves.save(toSave(engine.state, clock.now()));
+  const save = () => {
+    if (!savingDisabled) saves.save(toSave(profile, clock.now()));
   };
 
-  const app = new App(root, {
-    engine,
+  const root = document.getElementById('app')!;
+  const stage = document.createElement('div');
+  stage.id = 'stage';
+  const ui = document.createElement('div');
+  ui.id = 'ui';
+  root.append(stage, ui);
+
+  const sfx = new Sfx(() => game.profile.settings);
+  const modal = new Modal(document.body);
+  const toasts = new Toasts(document.body);
+  const game: Game = new Game(ui, profile, {
     sfx,
     modal,
     toasts,
-    actions: {
-      saveNow,
-      exportSave: () => encodeExport(toSave(engine.state, clock.now())),
-      importSave: (text) => {
-        try {
-          const { state: imported } = fromSave(decodeExport(text), clock.now());
-          savingDisabled = true;
-          saves.save(toSave(imported, clock.now()));
-          location.reload();
-          return null;
-        } catch (e) {
-          return e instanceof FutureSaveError ? 'err.importFuture' : 'err.importBad';
-        }
-      },
-      hardReset: () => {
+    save,
+    exportSave: () => encodeExport(toSave(game.profile, clock.now())),
+    importSave: (text) => {
+      try {
+        const { profile: imported } = fromSave(decodeExport(text));
         savingDisabled = true;
-        saves.clear();
+        saves.save(toSave(imported, clock.now()));
         location.reload();
-      },
+        return null;
+      } catch (e) {
+        return e instanceof FutureSaveError ? 'err.importFuture' : 'err.importBad';
+      }
+    },
+    hardReset: () => {
+      savingDisabled = true;
+      saves.clear();
+      location.reload();
     },
   });
-
-  engine.bus.on('returned', (e) => analytics.track('expedition_end', { tier: e.report.tier, layers: e.report.layers, broken: e.report.broken }));
-  engine.bus.on('built', (e) => analytics.track('built', { id: e.id, level: e.level }));
-  engine.bus.on('unlock', (e) => analytics.track('unlock', { flag: e.flag }));
 
   try {
     await Promise.all([document.fonts.load('16px "Tiny5"'), document.fonts.load('16px "Tiny5"', 'Відкликати')]);
@@ -102,74 +91,30 @@ async function boot(): Promise<void> {
     // fonts are cosmetic
   }
 
-  const game = new Phaser.Game({
+  const phaser = new Phaser.Game({
     type: Phaser.AUTO,
-    parent: app.stage,
-    width: VIEW_W,
-    height: VIEW_H,
+    parent: stage,
     pixelArt: true,
     backgroundColor: '#120d0b',
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [new ShaftScene(engine)],
+    scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
+    scene: [new RunScene(game)],
   });
 
   window.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
+  window.addEventListener('keydown', () => sfx.unlock(), { capture: true });
   if (bootMessage) toasts.show(t(bootMessage), 'danger', 9000);
-  if (!engine.state.settings.introSeen)
-    app.showIntro(() => {
-      engine.state.settings.introSeen = true;
-      saveNow();
-    });
-  else if (offline && offline.elapsedSec >= AWAY_REPORT_MIN_SEC) app.showOffline(offline);
-
-  // Fixed-step logic, decoupled from rendering.
-  let last = performance.now();
-  let acc = 0;
-  let uiAcc = 0;
-  let saveAcc = 0;
-  const frame = (t: number) => {
-    const dtMs = t - last;
-    last = t;
-    now = clock.now();
-    engine.interactive = document.visibilityState === 'visible';
-    if (dtMs > CATCH_UP_THRESHOLD_MS) {
-      const r = engine.catchUp(now);
-      acc = 0;
-      if (r.elapsedSec >= AWAY_REPORT_MIN_SEC && !modal.isOpen) app.showOffline(r);
-    } else {
-      acc += dtMs / 1000;
-      let steps = 0;
-      while (acc >= TICK && steps < 30) {
-        engine.tick(TICK, now);
-        acc -= TICK;
-        steps++;
-      }
-      if (steps >= 30) acc = 0;
-    }
-    uiAcc += dtMs;
-    if (uiAcc >= 100) {
-      uiAcc = 0;
-      app.update();
-    }
-    saveAcc += dtMs;
-    if (saveAcc >= AUTOSAVE_SECONDS * 1000) {
-      saveAcc = 0;
-      saveNow();
-    }
-    requestAnimationFrame(frame);
-  };
-  app.update();
-  requestAnimationFrame(frame);
+  if (!profile.settings.introSeen) game.showIntro();
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveNow();
+    if (document.visibilityState === 'hidden') save();
   });
-  window.addEventListener('pagehide', saveNow);
+  window.addEventListener('pagehide', save);
+  void analytics;
 
   // Debug handle for the console and automated smoke tests (no effect on gameplay).
-  (window as unknown as { rustheart: unknown }).rustheart = { engine, game };
+  (window as unknown as { rustheart: unknown }).rustheart = { game, phaser };
 }
 
 void boot();

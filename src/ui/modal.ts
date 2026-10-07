@@ -11,7 +11,10 @@ export class Modal {
       if (e.target === this.root) this.close();
     });
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.close();
+      if (e.key === 'Escape' && this.isOpen) {
+        e.preventDefault();
+        this.close();
+      }
     });
   }
 

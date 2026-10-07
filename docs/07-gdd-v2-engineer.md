@@ -1,3 +1,5 @@
+> ⚠️ **Застаріло.** Актуальний дизайн — [`08-gdd-v3-survivors.md`](08-gdd-v3-survivors.md).
+
 # 07 — RUSTHEART v2 · «Інженер» (актуальний GDD)
 
 > Замінює clicker-ядро з `03-gdd.md`. З v1 лишаються: світ, Wardens, data-driven архітектура, сейви, офлайн, деплой.
